@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, CheckCircle, Phone, MessageSquare, Info, Share2, X, ChevronRight, ChevronLeft, Send, Tag, MapPin, Star, Calendar, User, DollarSign, Plus, Minus, Mail, Upload, RefreshCw } from 'lucide-react';
+import { ImageUpload } from '../components/ImageUpload';
 import { Service, Rating } from '../types';
 
 import { useCMSData } from '../hooks/useCMSData';
@@ -334,7 +335,7 @@ export const ServiceDetail = () => {
             <img
               src={service.image}
               alt={service.name}
-              className="w-full aspect-[4/5] object-cover"
+              className="w-full h-[500px] object-cover"
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-transparent to-transparent" />
@@ -682,20 +683,8 @@ const RatingForm = ({ serviceId, serviceName }: { serviceId: string; serviceName
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [showAdvanced, setShowAdvanced] = React.useState(false);
-  const [profileImage, setProfileImage] = React.useState<string | null>(null);
-  const [servicePhoto, setServicePhoto] = React.useState<string | null>(null);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'profile' | 'service') => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === 'profile') setProfileImage(reader.result as string);
-        else setServicePhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const [profileImage, setProfileImage] = React.useState<string>('');
+  const [servicePhoto, setServicePhoto] = React.useState<string>('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -859,40 +848,16 @@ const RatingForm = ({ serviceId, serviceName }: { serviceId: string; serviceName
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Your Profile</label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex-1 cursor-pointer">
-                      <div className="flex items-center justify-center gap-2 px-6 py-4 bg-white/5 border border-dashed border-white/20 rounded-2xl hover:bg-white/10 transition-all">
-                        <Upload size={18} className="text-brand" />
-                        <span className="text-sm font-medium">Upload Profile</span>
-                      </div>
-                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'profile')} />
-                    </label>
-                    {profileImage && (
-                      <div className="w-14 h-14 rounded-xl overflow-hidden border border-brand/50">
-                        <img src={profileImage} alt="Profile Preview" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Service Photo</label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex-1 cursor-pointer">
-                      <div className="flex items-center justify-center gap-2 px-6 py-4 bg-white/5 border border-dashed border-white/20 rounded-2xl hover:bg-white/10 transition-all">
-                        <Upload size={18} className="text-brand" />
-                        <span className="text-sm font-medium">Upload Photo</span>
-                      </div>
-                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'service')} />
-                    </label>
-                    {servicePhoto && (
-                      <div className="w-14 h-14 rounded-xl overflow-hidden border border-brand/50">
-                        <img src={servicePhoto} alt="Service Preview" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ImageUpload
+                  label="Your Profile Photo"
+                  value={profileImage}
+                  onChange={setProfileImage}
+                />
+                <ImageUpload
+                  label="Service Photo"
+                  value={servicePhoto}
+                  onChange={setServicePhoto}
+                />
               </div>
             </motion.div>
           )}

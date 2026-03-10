@@ -56,6 +56,7 @@ import { RedirectionsTab } from './admin/RedirectionsTab';
 import { EmailTemplatesTab } from './admin/EmailTemplatesTab';
 import { VisualEditor } from '../components/VisualEditor';
 
+import { ImageUpload } from '../components/ImageUpload';
 import { useNavigate } from 'react-router-dom';
 
 export const Admin = () => {
@@ -617,20 +618,11 @@ export const Admin = () => {
 
                 {settings.logoType === 'image' ? (
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Logo URL</label>
-                    <div className="flex gap-4">
-                      <input
-                        value={settings.siteLogo}
-                        onChange={(e) => setSettings({...settings, siteLogo: e.target.value})}
-                        className="flex-1 bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand"
-                        placeholder="https://..."
-                      />
-                      {settings.siteLogo && (
-                        <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center overflow-hidden border border-white/10 p-1">
-                          <img src={settings.siteLogo} alt="Logo Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
-                        </div>
-                      )}
-                    </div>
+                    <ImageUpload
+                      label="Logo URL"
+                      value={settings.siteLogo}
+                      onChange={(url) => setSettings({...settings, siteLogo: url})}
+                    />
                   </div>
                 ) : (
                   <div className="space-y-8 p-6 bg-white/5 rounded-2xl border border-white/5">
@@ -738,20 +730,11 @@ export const Admin = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-400 uppercase">Favicon URL</label>
-                <div className="flex gap-4">
-                  <input
-                    value={settings.siteFavicon || ''}
-                    onChange={(e) => setSettings({...settings, siteFavicon: e.target.value})}
-                    className="flex-1 bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand"
-                    placeholder="https://..."
-                  />
-                  {settings.siteFavicon && (
-                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center overflow-hidden border border-white/10 p-2">
-                      <img src={settings.siteFavicon} alt="Favicon Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
-                    </div>
-                  )}
-                </div>
+                <ImageUpload
+                  label="Favicon URL"
+                  value={settings.siteFavicon || ''}
+                  onChange={(url) => setSettings({...settings, siteFavicon: url})}
+                />
               </div>
             </div>
 
@@ -2041,20 +2024,11 @@ export const Admin = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase">File URL</label>
-                      <div className="flex gap-2">
-                        <input
-                          value={editingMedia.url}
-                          onChange={(e) => setEditingMedia({...editingMedia, url: e.target.value})}
-                          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand"
-                          placeholder="https://..."
-                        />
-                        <button className="px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all">
-                          <Upload size={20} />
-                        </button>
-                      </div>
-                    </div>
+                    <ImageUpload
+                      label="File URL"
+                      value={editingMedia.url}
+                      onChange={(url) => setEditingMedia({...editingMedia, url: url})}
+                    />
 
                     <div className="space-y-4 border-t border-white/5 pt-6">
                       <h4 className="text-sm font-bold text-brand uppercase tracking-widest">SEO & Metadata</h4>
@@ -2667,12 +2641,16 @@ export const Admin = () => {
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-brand outline-none transition-all"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Profile Image URL</label>
-                    <input
-                      name="profileImage"
-                      defaultValue={editingRating.profileImage}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-brand outline-none transition-all"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <ImageUpload
+                      label="Profile Image"
+                      value={editingRating.profileImage}
+                      onChange={(url) => setEditingRating({...editingRating, profileImage: url})}
+                    />
+                    <ImageUpload
+                      label="Review Image"
+                      value={editingRating.reviewImage || ''}
+                      onChange={(url) => setEditingRating({...editingRating, reviewImage: url})}
                     />
                   </div>
                 </div>
@@ -2788,14 +2766,11 @@ export const Admin = () => {
               {/* Hero Section Settings */}
               <div className="glass-card p-8 rounded-3xl space-y-6">
                 <h3 className="text-lg font-bold text-brand">Hero Section Settings</h3>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase">Background Image URL</label>
-                  <input
-                    value={settings.heroBackgroundImage}
-                    onChange={(e) => setSettings({...settings, heroBackgroundImage: e.target.value})}
-                    className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand"
-                  />
-                </div>
+                <ImageUpload
+                  label="Background Image URL"
+                  value={settings.heroBackgroundImage}
+                  onChange={(url) => setSettings({...settings, heroBackgroundImage: url})}
+                />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Desktop Height (e.g. 50vh)</label>
@@ -2853,14 +2828,11 @@ export const Admin = () => {
               {/* About Page Settings */}
               <div className="glass-card p-8 rounded-3xl space-y-6">
                 <h3 className="text-lg font-bold text-brand">About Page Settings</h3>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase">Main Image URL</label>
-                  <input
-                    value={settings.aboutImage}
-                    onChange={(e) => setSettings({...settings, aboutImage: e.target.value})}
-                    className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand"
-                  />
-                </div>
+                <ImageUpload
+                  label="Main Image URL"
+                  value={settings.aboutImage}
+                  onChange={(url) => setSettings({...settings, aboutImage: url})}
+                />
                 <div className="space-y-4">
                   <label className="text-xs font-bold text-gray-400 uppercase block">Centered Stats</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4354,10 +4326,12 @@ export const Admin = () => {
                     <input name="date" type="date" defaultValue={editingBlog.date} required className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand" />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase">Image URL</label>
-                  <input name="image" defaultValue={editingBlog.image} required className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand" />
-                </div>
+                <ImageUpload
+                  label="Image URL"
+                  name="image"
+                  value={editingBlog.image}
+                  onChange={(url) => setEditingBlog({...editingBlog, image: url})}
+                />
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase">Excerpt (Short Summary)</label>
                   <textarea name="excerpt" defaultValue={editingBlog.excerpt} required rows={2} className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand" />
@@ -4429,10 +4403,12 @@ export const Admin = () => {
                     </select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase">Image URL</label>
-                  <input name="image" defaultValue={editingItem.image} required className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand" />
-                </div>
+                <ImageUpload
+                  label="Image URL"
+                  name="image"
+                  value={editingItem.image}
+                  onChange={(url) => setEditingItem({...editingItem, image: url})}
+                />
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase">Short Description</label>
                   <input name="shortDescription" defaultValue={editingItem.shortDescription} required className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand" />

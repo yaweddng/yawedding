@@ -233,7 +233,7 @@ export const BlogDetail = () => {
             <img
               src={blog.image}
               alt={blog.title}
-              className="w-full h-auto object-cover max-h-[500px]"
+              className="w-full h-[500px] object-cover"
               referrerPolicy="no-referrer"
             />
           </div>
