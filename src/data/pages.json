@@ -246,36 +246,43 @@
       "title": "Help Center",
       "slug": "help-center",
       "published": true,
-      "description": "Find answers to your questions and get support for your luxury event planning.",
+      "description": "Find answers to your questions and get support for your luxury event planning journey with YA Wedding.",
       "widgets": [
         {
           "id": "hc1",
           "type": "hero",
           "config": {
-            "title": "Help Center",
-            "subtitle": "How can we assist you today?",
-            "alignment": "center",
-            "height": "min-h-[40vh]"
+            "badge": "Support Center",
+            "title": "How Can We Help You?",
+            "subtitle": "Your journey to a perfect celebration starts with the right support. Explore our resources or contact our specialists.",
+            "image": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1920&q=80",
+            "heightType": "pixel",
+            "customHeight": 400
           },
           "weight": 0
         },
         {
           "id": "hc2",
-          "type": "faq",
+          "type": "features",
           "config": {
-            "title": "Common Questions",
+            "title": "Support Categories",
+            "subtitle": "Browse through our most common support topics to find quick answers.",
+            "centered": true,
             "items": [
               {
-                "q": "How do I book a consultation?",
-                "a": "You can book a consultation through our contact page or by calling us directly."
+                "icon": "Calendar",
+                "title": "Getting Started",
+                "description": "Learn about our planning process, from the initial consultation to the final walkthrough. We guide you every step of the way."
               },
               {
-                "q": "What areas do you serve?",
-                "a": "We primarily serve Dubai and the surrounding Emirates."
+                "icon": "CreditCard",
+                "title": "Booking & Payments",
+                "description": "Understand our deposit structures, payment schedules, and how to secure your preferred dates and vendors."
               },
               {
-                "q": "Can I customize my wedding package?",
-                "a": "Yes! Use our Package Builder tool to create a custom experience."
+                "icon": "Star",
+                "title": "Vendor Management",
+                "description": "How we select and coordinate with Dubai's elite vendors to ensure your event meets our luxury standards."
               }
             ]
           },
@@ -283,14 +290,38 @@
         },
         {
           "id": "hc3",
-          "type": "cta",
+          "type": "faq",
           "config": {
-            "title": "Still need help?",
-            "subtitle": "Our team is available 24/7 to assist you.",
-            "buttonText": "Contact Support",
-            "link": "/contact"
+            "title": "Frequently Asked Questions",
+            "subtitle": "Quick answers to the most common inquiries from our clients.",
+            "items": [
+              {
+                "q": "How far in advance should I book?",
+                "a": "For major weddings in Dubai, we recommend booking 6-12 months in advance to secure the best venues and vendors."
+              },
+              {
+                "q": "Do you handle destination weddings?",
+                "a": "Yes, while we specialize in Dubai, we have extensive experience managing luxury destination weddings across the UAE and internationally."
+              },
+              {
+                "q": "Can I use my own vendors?",
+                "a": "Absolutely. While we have a curated list of elite partners, we are happy to work with any professional vendors you prefer, provided they meet our quality standards."
+              }
+            ]
           },
           "weight": 2
+        },
+        {
+          "id": "hc4",
+          "type": "cta",
+          "config": {
+            "title": "Still Need Assistance?",
+            "subtitle": "Our luxury event specialists are available 24/7 to provide personalized support.",
+            "buttonText": "Contact Support",
+            "link": "/contact",
+            "image": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1920&q=80"
+          },
+          "weight": 3
         }
       ]
     },
@@ -299,27 +330,59 @@
       "title": "Trust & Safety",
       "slug": "trust-safety",
       "published": true,
-      "description": "Your safety and trust are our top priorities at YA Wedding.",
+      "description": "Your safety and trust are our top priorities. Learn how YA Wedding ensures a secure and premium experience.",
       "widgets": [
         {
           "id": "ts1",
           "type": "hero",
           "config": {
-            "title": "Trust & Safety",
-            "subtitle": "Commitment to excellence and security.",
-            "alignment": "center",
-            "height": "min-h-[40vh]"
+            "badge": "Security First",
+            "title": "Your Trust, Our Priority",
+            "subtitle": "We are committed to providing a secure, transparent, and high-quality planning experience for every client.",
+            "image": "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1920&q=80",
+            "heightType": "pixel",
+            "customHeight": 400
           },
           "weight": 0
         },
         {
           "id": "ts2",
-          "type": "text",
+          "type": "features",
           "config": {
-            "content": "## Our Commitment\n\nAt YA Wedding, we ensure that every vendor and service provider meets our rigorous standards for quality and safety.\n\n### Verified Vendors\nAll our partners are thoroughly vetted to ensure they provide the luxury experience you expect.\n\n### Secure Payments\nWe use industry-standard encryption for all financial transactions.",
-            "alignment": "left"
+            "title": "Our Safety Standards",
+            "subtitle": "How we protect your investment and ensure the success of your event.",
+            "centered": true,
+            "items": [
+              {
+                "icon": "Tag",
+                "title": "Rigorous Vetting",
+                "description": "Every vendor in our network undergoes a comprehensive background check and quality assessment."
+              },
+              {
+                "icon": "CreditCard",
+                "title": "Secure Payments",
+                "description": "We utilize industry-leading encryption and secure payment gateways to protect your financial data."
+              },
+              {
+                "icon": "Gift",
+                "title": "Full Insurance",
+                "description": "YA Wedding maintains extensive liability insurance, providing you with total peace of mind."
+              }
+            ]
           },
           "weight": 1
+        },
+        {
+          "id": "ts3",
+          "type": "cta",
+          "config": {
+            "title": "Experience Secure Planning",
+            "subtitle": "Start your journey with a partner you can truly rely on.",
+            "buttonText": "Get Started",
+            "link": "/contact",
+            "image": "https://images.unsplash.com/photo-1522158634129-4483665977bb?auto=format&fit=crop&w=1920&q=80"
+          },
+          "weight": 2
         }
       ]
     },
@@ -328,16 +391,18 @@
       "title": "Terms of Service",
       "slug": "terms-of-service",
       "published": true,
-      "description": "Legal terms and conditions for using YA Wedding services.",
+      "description": "The legal framework for our partnership. Please review our terms and conditions.",
       "widgets": [
         {
           "id": "tos1",
           "type": "hero",
           "config": {
+            "badge": "Legal Agreement",
             "title": "Terms of Service",
-            "subtitle": "Please read these terms carefully.",
-            "alignment": "center",
-            "height": "min-h-[40vh]"
+            "subtitle": "Understanding the foundation of our professional relationship and service delivery.",
+            "image": "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1920&q=80",
+            "heightType": "pixel",
+            "customHeight": 400
           },
           "weight": 0
         },
@@ -345,8 +410,10 @@
           "id": "tos2",
           "type": "text",
           "config": {
-            "content": "## 1. Acceptance of Terms\nBy accessing our services, you agree to be bound by these terms.\n\n## 2. Service Description\nYA Wedding provides event planning and management services in Dubai.\n\n## 3. Booking and Cancellations\nSpecific booking terms apply to each service and package. Please refer to your individual contract for details.",
-            "alignment": "left"
+            "title": "Legal Framework",
+            "subtitle": "Key terms governing the use of our platform and services.",
+            "centered": false,
+            "content": "### 1. Acceptance of Terms\nBy accessing or using the YA Wedding platform, you agree to be bound by these Terms of Service and all applicable laws and regulations in the UAE.\n\n### 2. Scope of Services\nYA Wedding provides event planning, coordination, and management services. The specific scope of work for each project will be defined in a separate Service Agreement.\n\n### 3. User Responsibilities\nClients are responsible for providing accurate information, timely feedback, and adhering to the agreed-upon payment schedules.\n\n### 4. Intellectual Property\nAll designs, concepts, and materials created by YA Wedding remain our intellectual property unless otherwise agreed upon in writing.\n\n### 5. Limitation of Liability\nYA Wedding shall not be liable for any indirect, incidental, or consequential damages arising from the use of our services or the actions of third-party vendors."
           },
           "weight": 1
         }
@@ -357,16 +424,18 @@
       "title": "Privacy Policy",
       "slug": "privacy-policy",
       "published": true,
-      "description": "How we handle and protect your personal data at YA Wedding.",
+      "description": "How we protect and manage your personal information at YA Wedding.",
       "widgets": [
         {
           "id": "pp1",
           "type": "hero",
           "config": {
-            "title": "Privacy Policy",
-            "subtitle": "Your privacy is important to us.",
-            "alignment": "center",
-            "height": "min-h-[40vh]"
+            "badge": "Data Protection",
+            "title": "Your Privacy Matters",
+            "subtitle": "We are dedicated to protecting your personal data and maintaining your trust through transparency.",
+            "image": "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=1920&q=80",
+            "heightType": "pixel",
+            "customHeight": 400
           },
           "weight": 0
         },
@@ -374,8 +443,10 @@
           "id": "pp2",
           "type": "text",
           "config": {
-            "content": "## Data Collection\nWe collect information that you provide directly to us when you book a service or contact us.\n\n## Use of Information\nWe use your information to provide and improve our services, and to communicate with you about your events.\n\n## Data Protection\nWe implement a variety of security measures to maintain the safety of your personal information.",
-            "alignment": "left"
+            "title": "Data Protection",
+            "subtitle": "Our commitment to your personal information security.",
+            "centered": false,
+            "content": "### Information Collection\nWe collect information necessary to provide our luxury planning services, including contact details, event preferences, and financial information for billing purposes.\n\n### How We Use Your Data\nYour information is used to personalize your experience, process transactions, and communicate important updates regarding your event.\n\n### Data Sharing\nWe only share your information with trusted third-party vendors who are essential to the execution of your event. We never sell your data to third parties.\n\n### Your Rights\nYou have the right to access, correct, or request the deletion of your personal data at any time. Contact our privacy officer for assistance."
           },
           "weight": 1
         }
@@ -426,16 +497,18 @@
       "title": "Return and Refund",
       "slug": "return-refund",
       "published": true,
-      "description": "Our policy on returns and refunds for services and rentals.",
+      "description": "Our transparent policies regarding cancellations, returns, and refunds.",
       "widgets": [
         {
           "id": "rr1",
           "type": "hero",
           "config": {
-            "title": "Return and Refund",
-            "subtitle": "Clear policies for your peace of mind.",
-            "alignment": "center",
-            "height": "min-h-[40vh]"
+            "badge": "Refund Policy",
+            "title": "Refund & Return Policy",
+            "subtitle": "Clear and fair policies designed to provide flexibility and peace of mind for our clients.",
+            "image": "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1920&q=80",
+            "heightType": "pixel",
+            "customHeight": 400
           },
           "weight": 0
         },
@@ -443,10 +516,24 @@
           "id": "rr2",
           "type": "text",
           "config": {
-            "content": "## Service Cancellations\nCancellations made more than 30 days before the event date may be eligible for a partial refund of the deposit.\n\n## Rental Returns\nAll rental items must be returned in their original condition. Damages may incur additional charges.\n\n## Refund Process\nApproved refunds are processed within 14 business days to the original payment method.",
-            "alignment": "left"
+            "title": "Policy Details",
+            "subtitle": "Understanding our cancellation and return procedures.",
+            "centered": false,
+            "content": "### Service Cancellations\nCancellations made more than 60 days before the event are eligible for a 50% refund of the deposit. Cancellations within 30 days are non-refundable but may be credited toward a future date.\n\n### Rental Item Returns\nAll rental equipment must be returned within 24 hours of the event conclusion. Items must be in their original condition to avoid damage fees.\n\n### Refund Processing\nApproved refunds are processed within 14 business days. The funds will be returned to the original payment method used during booking.\n\n### Force Majeure\nIn the event of government-mandated restrictions or natural disasters, we offer full flexibility to reschedule your event without penalty."
           },
           "weight": 1
+        },
+        {
+          "id": "rr3",
+          "type": "cta",
+          "config": {
+            "title": "Have Questions?",
+            "subtitle": "Our team is here to clarify any policy details for you.",
+            "buttonText": "Contact Us",
+            "link": "/contact",
+            "image": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1920&q=80"
+          },
+          "weight": 2
         }
       ]
     },
@@ -456,6 +543,7 @@
       "slug": "mobile-app",
       "published": true,
       "description": "Experience the future of event planning with our mobile app.",
+      "widgets": [],
       "visualLayout": {
         "sections": [
           {

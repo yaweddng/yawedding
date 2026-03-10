@@ -854,6 +854,8 @@ async function startServer() {
   app.get("/sitemap.xml", (req, res) => {
     const services = JSON.parse(fs.readFileSync(SERVICES_PATH, "utf-8")).services;
     const blogs = JSON.parse(fs.readFileSync(BLOGS_PATH, "utf-8")).blogs;
+    const promos = JSON.parse(fs.readFileSync(PROMOS_PATH, "utf-8")).promos;
+    const packages = JSON.parse(fs.readFileSync(PACKAGES_DATA_PATH, "utf-8")).packages;
     const baseUrl = "https://ya.tssmeemevents.com";
 
     let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -867,6 +869,7 @@ async function startServer() {
   <url><loc>${baseUrl}/faq</loc><priority>0.7</priority></url>
   <url><loc>${baseUrl}/discounts</loc><priority>0.8</priority></url>
   <url><loc>${baseUrl}/package-builder</loc><priority>0.8</priority></url>
+  <url><loc>${baseUrl}/packages</loc><priority>0.8</priority></url>
   <url><loc>${baseUrl}/search</loc><priority>0.6</priority></url>`;
 
     services.forEach((s: any) => {
@@ -875,6 +878,14 @@ async function startServer() {
 
     blogs.forEach((b: any) => {
       sitemap += `\n  <url><loc>${baseUrl}/blog/${b.id}</loc><priority>0.6</priority></url>`;
+    });
+
+    promos.forEach((p: any) => {
+      sitemap += `\n  <url><loc>${baseUrl}/discounts#${p.id}</loc><priority>0.6</priority></url>`;
+    });
+
+    packages.forEach((pkg: any) => {
+      sitemap += `\n  <url><loc>${baseUrl}/packages#${pkg.id}</loc><priority>0.7</priority></url>`;
     });
 
     sitemap += "\n</urlset>";

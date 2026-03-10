@@ -3121,7 +3121,7 @@ export const Admin = () => {
                     <div>
                       <h3 className="font-bold">{page.title}</h3>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm text-gray-400">/{page.slug} • {page.widgets.length} Widgets</p>
+                        <p className="text-sm text-gray-400">/{page.slug} • {(page.widgets || []).length} Widgets</p>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${page.published ? 'bg-brand/20 text-brand' : 'bg-yellow-500/20 text-yellow-500'}`}>
                           {page.published ? 'Published' : 'Draft'}
                         </span>
@@ -3872,9 +3872,9 @@ export const Admin = () => {
                           id: `w-${Date.now()}`, 
                           type: 'text', 
                           config: widgetTypes.text, 
-                          weight: editingPage.widgets.length 
+                          weight: (editingPage.widgets || []).length 
                         };
-                        setEditingPage({ ...editingPage, widgets: [...editingPage.widgets, newWidget] });
+                        setEditingPage({ ...editingPage, widgets: [...(editingPage.widgets || []), newWidget] });
                       }}
                       className="text-sm bg-brand/10 text-brand px-3 py-1 rounded-lg font-bold"
                     >
@@ -3883,7 +3883,7 @@ export const Admin = () => {
                   </div>
 
                   <div className="space-y-4">
-                    {editingPage.widgets.sort((a: any, b: any) => a.weight - b.weight).map((widget: any, idx: number) => (
+                    {(editingPage.widgets || []).sort((a: any, b: any) => a.weight - b.weight).map((widget: any, idx: number) => (
                       <div key={widget.id} className="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-4">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-4">
@@ -3992,9 +3992,19 @@ export const Admin = () => {
                                   package_builder: { title: 'Build Your Package' },
                                   discounts: { title: 'Exclusive Discounts' },
                                   contact: { title: 'Contact Us', subtitle: 'Get in touch' },
-                                  booking_form: { formId: 'default-booking', title: 'Book Now', subtitle: 'Fill the form to get started' }
+                                  booking_form: { formId: 'default-booking', title: 'Book Now', subtitle: 'Fill the form to get started' },
+                                  features: { 
+                                    title: 'Our Features', 
+                                    subtitle: 'Why choose us', 
+                                    centered: true,
+                                    items: [
+                                      { icon: 'Star', title: 'Feature 1', description: 'Description here' },
+                                      { icon: 'Shield', title: 'Feature 2', description: 'Description here' },
+                                      { icon: 'Heart', title: 'Feature 3', description: 'Description here' }
+                                    ]
+                                  }
                                 };
-                                const newWidgets = [...editingPage.widgets];
+                                const newWidgets = [...(editingPage.widgets || [])];
                                 newWidgets[idx].type = newType;
                                 newWidgets[idx].config = widgetTypes[newType] || {};
                                 setEditingPage({ ...editingPage, widgets: newWidgets });
@@ -4015,6 +4025,7 @@ export const Admin = () => {
                               <option value="discounts">Discounts Page</option>
                               <option value="contact">Contact Section</option>
                               <option value="booking_form">Booking Form</option>
+                              <option value="features">Features Section</option>
                             </select>
                           </div>
                           <div className="flex items-center gap-2">
@@ -4022,7 +4033,7 @@ export const Admin = () => {
                               type="button"
                               onClick={() => {
                                 if (idx === 0) return;
-                                const newWidgets = [...editingPage.widgets];
+                                const newWidgets = [...(editingPage.widgets || [])];
                                 const temp = newWidgets[idx].weight;
                                 newWidgets[idx].weight = newWidgets[idx-1].weight;
                                 newWidgets[idx-1].weight = temp;
@@ -4035,8 +4046,8 @@ export const Admin = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                if (idx === editingPage.widgets.length - 1) return;
-                                const newWidgets = [...editingPage.widgets];
+                                if (idx === (editingPage.widgets || []).length - 1) return;
+                                const newWidgets = [...(editingPage.widgets || [])];
                                 const temp = newWidgets[idx].weight;
                                 newWidgets[idx].weight = newWidgets[idx+1].weight;
                                 newWidgets[idx+1].weight = temp;
@@ -4049,7 +4060,7 @@ export const Admin = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                const newWidgets = editingPage.widgets.filter((w: any) => w.id !== widget.id);
+                                const newWidgets = (editingPage.widgets || []).filter((w: any) => w.id !== widget.id);
                                 setEditingPage({ ...editingPage, widgets: newWidgets });
                               }}
                               className="p-1 hover:text-red-500"
@@ -4072,7 +4083,7 @@ export const Admin = () => {
                               <select
                                 value={widget.config.heightType || 'auto'}
                                 onChange={(e) => {
-                                  const newWidgets = [...editingPage.widgets];
+                                  const newWidgets = [...(editingPage.widgets || [])];
                                   newWidgets[idx].config.heightType = e.target.value;
                                   setEditingPage({ ...editingPage, widgets: newWidgets });
                                 }}

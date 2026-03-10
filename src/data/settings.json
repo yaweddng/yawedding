@@ -9,7 +9,7 @@
   "seoSchema": "{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"YA Wedding\",\n  \"url\": \"https://ya.tssmeemevents.com\",\n  \"logo\": \"/favicon.svg\"\n}",
   "googleTagManagerId": "GTM-XXXXXXX",
   "googleAnalyticsId": "G-XXXXXXXXXX",
-  "googleSearchConsoleKey": "",
+  "googleSearchConsoleKey": "2dQ4j2m-w2kB1OmX75fwe8F6Re32kWK2pqxL3slhbVw",
   "googleAdsenseKey": "",
   "header": {
     "menu": [

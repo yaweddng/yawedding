@@ -86,7 +86,7 @@ export interface AdvancedStyling {
 
 export interface Widget {
   id: string;
-  type: 'hero' | 'services' | 'blogs' | 'text' | 'stats' | 'contact' | 'gallery' | 'promos' | 'faq' | 'cta' | 'about' | 'package_builder' | 'discounts' | 'booking_form' | 'testimonials' | 'pro' | 'standard' | 'pwa_install';
+  type: 'hero' | 'services' | 'blogs' | 'text' | 'stats' | 'contact' | 'gallery' | 'promos' | 'faq' | 'cta' | 'about' | 'package_builder' | 'discounts' | 'booking_form' | 'testimonials' | 'pro' | 'standard' | 'pwa_install' | 'features';
   config: any;
   weight: number;
 }
@@ -288,7 +288,7 @@ export interface Page {
   title: string;
   slug: string;
   description?: string;
-  widgets: (Widget | { containerId: string })[];
+  widgets?: (Widget | { containerId: string })[];
   containers?: Container[];
   visualLayout?: VisualLayout; // New visual editor layout
   isSystem?: boolean;

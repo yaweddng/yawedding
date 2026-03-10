@@ -119,7 +119,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
         background: '#0a0a0a'
       }
     };
-    setLayout({ ...layout, sections: [...layout.sections, newSection] });
+    setLayout({ ...layout, sections: [...(layout.sections || []), newSection] });
   };
 
   const addComponent = (sectionId: string, columnId: string, type: string) => {
@@ -131,7 +131,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
       settings: {}
     };
 
-    const newSections = layout.sections.map(s => {
+    const newSections = (layout.sections || []).map(s => {
       if (s.id === sectionId) {
         return {
           ...s,
@@ -152,7 +152,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
   };
 
   const removeComponent = (id: string) => {
-    const newSections = layout.sections.map(s => ({
+    const newSections = (layout.sections || []).map(s => ({
       ...s,
       columns: s.columns.map(c => ({
         ...c,
@@ -164,7 +164,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
   };
 
   const updateComponent = (id: string, updates: Partial<VisualComponent>) => {
-    const newSections = layout.sections.map(s => ({
+    const newSections = (layout.sections || []).map(s => ({
       ...s,
       columns: s.columns.map(c => ({
         ...c,
@@ -175,7 +175,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
   };
 
   const findComponent = (id: string): VisualComponent | null => {
-    for (const s of layout.sections) {
+    for (const s of (layout.sections || [])) {
       for (const c of s.columns) {
         const comp = c.components.find(cp => cp.id === id);
         if (comp) return comp;
@@ -271,11 +271,11 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
                     <button
                       key={comp.type}
                       onClick={() => {
-                        if (layout.sections.length === 0) {
+                        if ((layout.sections || []).length === 0) {
                           addSection();
                           return;
                         }
-                        const lastSection = layout.sections[layout.sections.length - 1];
+                        const lastSection = (layout.sections || [])[(layout.sections || []).length - 1];
                         const lastColumn = lastSection.columns[0];
                         addComponent(lastSection.id, lastColumn.id, comp.type);
                       }}
@@ -292,13 +292,13 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
 
               {activePanel === 'structure' && (
                 <div className="space-y-2">
-                  {layout.sections.map((section, sIdx) => (
+                  {(layout.sections || []).map((section, sIdx) => (
                     <div key={section.id} className="space-y-1">
                       <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/5">
                         <span className="text-[10px] font-bold uppercase text-gray-400">Section {sIdx + 1}</span>
                         <button 
                           onClick={() => {
-                            const newSections = layout.sections.filter(s => s.id !== section.id);
+                            const newSections = (layout.sections || []).filter(s => s.id !== section.id);
                             setLayout({ ...layout, sections: newSections });
                           }}
                           className="text-gray-500 hover:text-red-500"
@@ -343,7 +343,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
         {/* Main Canvas */}
         <div className={`flex-1 overflow-y-auto bg-[#151515] relative ${previewMode ? 'p-0' : 'p-12'}`}>
           <div className={`mx-auto bg-dark shadow-2xl transition-all ${previewMode ? 'w-full min-h-full' : 'max-w-5xl min-h-[800px] rounded-3xl overflow-hidden border border-white/5'}`}>
-            {layout.sections.length === 0 ? (
+            {(layout.sections || []).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[600px] text-center p-12">
                 <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center text-gray-600 mb-6">
                   <Layout size={40} />
@@ -359,7 +359,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
               </div>
             ) : (
               <div className="visual-layout">
-                {layout.sections.map((section) => (
+                {(layout.sections || []).map((section) => (
                   <section 
                     key={section.id} 
                     style={{ 
@@ -372,7 +372,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
                     {!previewMode && (
                       <div className="absolute top-2 right-2 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-2 z-10">
                         <button onClick={() => {
-                          const newSections = layout.sections.filter(s => s.id !== section.id);
+                          const newSections = (layout.sections || []).filter(s => s.id !== section.id);
                           setLayout({ ...layout, sections: newSections });
                         }} className="p-2 bg-red-500 text-white rounded-lg shadow-lg"><Trash2 size={14} /></button>
                       </div>
@@ -380,7 +380,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
 
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                       <div className="flex flex-wrap -mx-4">
-                        {section.columns.map((column) => (
+                        {(section.columns || []).map((column) => (
                           <div 
                             key={column.id} 
                             className="px-4 relative group/column min-h-[50px]" 
@@ -389,7 +389,7 @@ export const VisualEditor: React.FC<VisualEditorProps> = ({ pageId, type = 'page
                               ...column.style
                             }}
                           >
-                            {column.components.map((comp) => (
+                            {(column.components || []).map((comp) => (
                               <div 
                                 key={comp.id}
                                 onClick={(e) => {

@@ -13,6 +13,7 @@ import { BookingForm } from '../components/BookingForm';
 import { BookingForm as BookingFormType } from '../types';
 
 import { useCMSData } from '../hooks/useCMSData';
+import { CMSWidgets } from '../components/CMSWidgets';
 
 export const DynamicPage = ({ slugOverride, username }: { slugOverride?: string; username?: string }) => {
   const { slug: routeSlug } = useParams();
@@ -553,7 +554,7 @@ export const DynamicPage = ({ slugOverride, username }: { slugOverride?: string;
   const renderVisualLayout = (layout: VisualLayout) => {
     return (
       <div className="visual-layout">
-        {layout.sections.map((section: VisualSection) => (
+        {(layout.sections || []).map((section: VisualSection) => (
           <section 
             key={section.id} 
             style={{ 
@@ -565,7 +566,7 @@ export const DynamicPage = ({ slugOverride, username }: { slugOverride?: string;
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex flex-wrap -mx-4">
-                {section.columns.map((column: VisualColumn) => (
+                {(section.columns || []).map((column: VisualColumn) => (
                   <div 
                     key={column.id} 
                     className="px-4" 
@@ -574,7 +575,7 @@ export const DynamicPage = ({ slugOverride, username }: { slugOverride?: string;
                       ...column.style
                     }}
                   >
-                    {column.components.map(renderVisualComponent)}
+                    {(column.components || []).map(renderVisualComponent)}
                   </div>
                 ))}
               </div>
@@ -588,7 +589,7 @@ export const DynamicPage = ({ slugOverride, username }: { slugOverride?: string;
   return (
     <div className="bg-dark min-h-screen">
       <div className="widgets-container">
-        {page.visualLayout ? renderVisualLayout(page.visualLayout) : page.widgets.sort((a, b) => a.weight - b.weight).map(renderWidget)}
+        {page.visualLayout ? renderVisualLayout(page.visualLayout) : <CMSWidgets slug={slug} />}
       </div>
     </div>
   );

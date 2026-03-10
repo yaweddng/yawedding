@@ -91,10 +91,10 @@ export const Contact = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12">
           {/* Contact Info */}
-          <div className="lg:col-span-1 space-y-8">
-            <div className="glass-card p-8 rounded-3xl space-y-8">
+          <div className="space-y-8">
+            <div className="glass-card p-8 rounded-3xl space-y-8 h-full">
               <div className="flex items-start gap-6">
                 <div className="bg-brand/10 p-4 rounded-2xl text-brand">
                   <Phone size={24} />
@@ -140,7 +140,7 @@ export const Contact = () => {
           </div>
 
           {/* Google Map Placeholder */}
-          <div className="lg:col-span-1 h-64 lg:h-full min-h-[300px] rounded-3xl overflow-hidden glass-card">
+          <div className="h-64 lg:h-full min-h-[400px] rounded-3xl overflow-hidden glass-card">
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3608.234321!2d55.33!3d25.27!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjXCsDE2JzEyLjAiTiA1NcKwMTknNDguMCJF!5e0!3m2!1sen!2sae!4v1620000000000!5m2!1sen!2sae"
               width="100%"
@@ -150,83 +150,83 @@ export const Contact = () => {
               loading="lazy"
             ></iframe>
           </div>
+        </div>
 
-          {/* Contact Form */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="glass-card p-10 rounded-[40px] space-y-8 h-full">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Full Name</label>
-                  <input
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
-                    placeholder="John Doe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Email Address</label>
-                  <input
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
-                    placeholder="john@example.com"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Phone Number</label>
-                  <input
-                    required
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
-                    placeholder="+971 50 000 0000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Event Type</label>
-                  <select 
-                    value={formData.eventType}
-                    onChange={(e) => setFormData({...formData, eventType: e.target.value})}
-                    className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none"
-                  >
-                    <option>Wedding Planning</option>
-                    <option>Corporate Event</option>
-                    <option>Birthday / Anniversary</option>
-                    <option>Rentals Only</option>
-                  </select>
-                </div>
-              </div>
-
+        {/* Contact Form */}
+        <div className="max-w-4xl mx-auto">
+          <form onSubmit={handleSubmit} className="glass-card p-10 rounded-[40px] space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Message</label>
-                <textarea
+                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Full Name</label>
+                <input
                   required
-                  rows={4}
-                  value={formData.message}
-                  onChange={(e) => setFormData({...formData, message: e.target.value})}
-                  className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all resize-none"
-                  placeholder="Tell us about your dream event..."
-                ></textarea>
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
+                  placeholder="John Doe"
+                />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Email Address</label>
+                <input
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
+                  placeholder="john@example.com"
+                />
+              </div>
+            </div>
 
-              <button
-                disabled={isSubmitting}
-                type="submit"
-                className="relative group overflow-hidden w-full bg-brand text-dark py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 hover:shadow-[0_0_40px_rgba(0,200,150,0.4)] transition-all animate-fast-pulse disabled:opacity-50"
-              >
-                <div className="absolute inset-0 shimmer-effect opacity-0 group-hover:opacity-100 transition-opacity" />
-                <span className="relative z-10 flex items-center gap-3">
-                  {isSubmitting ? 'Sending...' : 'Send Message'} <Send size={20} />
-                </span>
-              </button>
-            </form>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Phone Number</label>
+                <input
+                  required
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
+                  placeholder="+971 50 000 0000"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Event Type</label>
+                <select 
+                  value={formData.eventType}
+                  onChange={(e) => setFormData({...formData, eventType: e.target.value})}
+                  className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none"
+                >
+                  <option>Wedding Planning</option>
+                  <option>Corporate Event</option>
+                  <option>Birthday / Anniversary</option>
+                  <option>Rentals Only</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Message</label>
+              <textarea
+                required
+                rows={4}
+                value={formData.message}
+                onChange={(e) => setFormData({...formData, message: e.target.value})}
+                className="w-full bg-dark border border-white/10 rounded-2xl px-6 py-4 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all resize-none"
+                placeholder="Tell us about your dream event..."
+              ></textarea>
+            </div>
+
+            <button
+              disabled={isSubmitting}
+              type="submit"
+              className="relative group overflow-hidden w-full bg-brand text-dark py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 hover:shadow-[0_0_40px_rgba(0,200,150,0.4)] transition-all animate-fast-pulse disabled:opacity-50"
+            >
+              <div className="absolute inset-0 shimmer-effect opacity-0 group-hover:opacity-100 transition-opacity" />
+              <span className="relative z-10 flex items-center gap-3">
+                {isSubmitting ? 'Sending...' : 'Send Message'} <Send size={20} />
+              </span>
+            </button>
+          </form>
         </div>
       </div>
       <CMSWidgets slug="contact" excludeTypes={['contact']} />

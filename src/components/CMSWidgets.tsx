@@ -8,21 +8,29 @@ import { BookingForm } from './BookingForm';
 import PackageBuilder from './PackageBuilder';
 import { useCMSData } from '../hooks/useCMSData';
 
-export const DecoratedHeadline = ({ title, subtitle, centered = false, className = "" }: { title: string, subtitle?: string, centered?: boolean, className?: string }) => {
+export const DecoratedHeadline = ({ title, subtitle, centered = false, className = "", size = "normal" }: { title: string, subtitle?: string, centered?: boolean, className?: string, size?: "normal" | "large" }) => {
   const words = title.split(' ');
   const lastWord = words.pop();
   const mainText = words.join(' ');
 
+  const titleClasses = size === "large" 
+    ? "text-5xl md:text-7xl font-bold mb-6 leading-tight"
+    : "text-4xl md:text-5xl font-bold mb-4 leading-tight";
+  
+  const scriptClasses = size === "large"
+    ? "font-script text-gradient-brand text-6xl md:text-8xl lowercase animate-float inline-block ml-2"
+    : "font-script text-gradient-brand text-5xl md:text-6xl lowercase animate-float inline-block ml-2";
+
   return (
     <div className={`${centered ? 'text-center' : ''} ${className || 'mb-12'}`}>
-      <h2 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
+      <h2 className={titleClasses}>
         {mainText}{' '}
-        <span className="font-script text-gradient-brand text-5xl md:text-6xl lowercase animate-float inline-block ml-2">
+        <span className={scriptClasses}>
           {lastWord}
         </span>
       </h2>
       {subtitle && (
-        <p className={`text-gray-400 text-lg max-w-2xl ${centered ? 'mx-auto' : ''}`}>
+        <p className={`text-gray-400 text-lg max-w-2xl ${centered ? 'mx-auto' : ''} leading-relaxed`}>
           {subtitle}
         </p>
       )}
@@ -136,11 +144,10 @@ export const CMSWidgets: React.FC<CMSWidgetsProps> = ({ slug, excludeTypes = [] 
     switch (type) {
       case 'hero':
         return (
-          <section key={widget.id} className={`relative flex items-center overflow-hidden min-h-[60vh] ${sectionPadding.className}`} style={sectionPadding.style}>
+          <section key={widget.id} className={`relative pt-32 pb-20 overflow-hidden flex items-center min-h-[60vh] ${sectionPadding.className}`} style={sectionPadding.style}>
             <div className="absolute inset-0 z-0">
-              <img src={config.image} alt={config.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              <div className="absolute inset-0 bg-dark/70" />
-              <div className="absolute inset-0 luxury-gradient" />
+              <img src={config.image} alt={config.title} className="w-full h-full object-cover opacity-40" referrerPolicy="no-referrer" />
+              <div className="absolute inset-0 bg-gradient-to-b from-dark via-dark/80 to-dark" />
             </div>
             <div className="max-w-7xl mx-auto px-4 relative z-10 text-center">
               <motion.div
@@ -148,8 +155,21 @@ export const CMSWidgets: React.FC<CMSWidgetsProps> = ({ slug, excludeTypes = [] 
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
               >
-                <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight text-white">{config.title}</h1>
-                <p className="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">{config.subtitle}</p>
+                {config.badge && (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand/10 border border-brand/20 backdrop-blur-md mb-8">
+                    <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
+                    <span className="text-brand font-bold tracking-widest uppercase text-xs">
+                      {config.badge}
+                    </span>
+                  </div>
+                )}
+                <DecoratedHeadline 
+                  title={config.title} 
+                  subtitle={config.subtitle} 
+                  centered={true} 
+                  size="large"
+                  className="mb-10"
+                />
                 {config.ctaText && (
                   <Link 
                     to={config.ctaLink} 
@@ -244,7 +264,7 @@ export const CMSWidgets: React.FC<CMSWidgetsProps> = ({ slug, excludeTypes = [] 
                         WebkitBoxOrient: 'vertical'
                       }}
                     >
-                      "{(rating.content || rating.text).slice(0, 200)}{(rating.content || rating.text).length > 200 ? '...' : ''}"
+                      "{(rating.content || rating.text || "").slice(0, 200)}{(rating.content || rating.text || "").length > 200 ? '...' : ''}"
                     </p>
 
                     {rating.showReviewImage && rating.reviewImage && (
@@ -648,6 +668,129 @@ export const CMSWidgets: React.FC<CMSWidgetsProps> = ({ slug, excludeTypes = [] 
                     </div>
                   </div>
                 </motion.div>
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'features':
+        return (
+          <section key={widget.id} className={`bg-lighter-dark/30 ${sectionPadding.className}`} style={sectionPadding.style}>
+            <div className="max-w-7xl mx-auto px-4">
+              <DecoratedHeadline 
+                title={config.title || "Our Features"} 
+                subtitle={config.subtitle} 
+                centered={config.centered !== false}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {(config.items || []).map((item: any, idx: number) => (
+                  <motion.div 
+                    key={idx} 
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="glass-card p-8 rounded-3xl hover:border-brand/50 transition-all group"
+                  >
+                    <div className="mb-6 transform group-hover:scale-110 transition-transform">
+                      {item.icon && iconMap[item.icon] ? iconMap[item.icon] : <CheckCircle2 className="text-brand" size={24} />}
+                    </div>
+                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">{item.description}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'faq':
+        return (
+          <section key={widget.id} className={sectionPadding.className} style={sectionPadding.style}>
+            <div className="max-w-4xl mx-auto px-4">
+              <DecoratedHeadline 
+                title={config.title || "Frequently Asked Questions"} 
+                subtitle={config.subtitle || "Find answers to common questions about our luxury event planning services."}
+                centered={true}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {(config.items || [
+                  { q: "How do I book a consultation?", a: "You can book a consultation through our contact page or by calling us directly." },
+                  { q: "What areas do you serve?", a: "We primarily serve Dubai and the surrounding Emirates." }
+                ]).map((item: any, idx: number) => (
+                  <motion.div 
+                    key={idx} 
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="glass-card p-8 rounded-3xl border border-white/5 hover:border-brand/30 transition-all"
+                  >
+                    <h4 className="text-xl font-bold mb-4 text-brand">{item.q}</h4>
+                    <p className="text-gray-400 leading-relaxed">{item.a}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'gallery':
+        return (
+          <section key={widget.id} className={`bg-dark-lighter ${sectionPadding.className}`} style={sectionPadding.style}>
+            <div className="max-w-7xl mx-auto px-4">
+              <DecoratedHeadline 
+                title={config.title || "Our Portfolio"} 
+                subtitle={config.subtitle || "A glimpse into the luxury weddings and events we've brought to life in Dubai."}
+                centered={true}
+              />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {(config.images || [
+                  "https://tsameemevents.com/wp-content/uploads/luxury-outdoor-wedding-reception-sunset-lakeview.webp",
+                  "https://tsameemevents.com/wp-content/uploads/luxury-outdoor-wedding-reception-sunset-lakeview.webp",
+                  "https://tsameemevents.com/wp-content/uploads/luxury-outdoor-wedding-reception-sunset-lakeview.webp",
+                  "https://tsameemevents.com/wp-content/uploads/luxury-outdoor-wedding-reception-sunset-lakeview.webp"
+                ]).map((img: string, idx: number) => (
+                  <motion.div 
+                    key={idx} 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="aspect-square rounded-2xl overflow-hidden group relative"
+                  >
+                    <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Gallery" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-brand/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Sparkles className="text-white" size={32} />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'stats':
+        return (
+          <section key={widget.id} className={sectionPadding.className} style={sectionPadding.style}>
+            <div className="max-w-7xl mx-auto px-4">
+              <div className="flex flex-wrap justify-center gap-8">
+                {(config.stats || [
+                  { label: "Experience", value: "10+" },
+                  { label: "Events", value: "500+" },
+                  { label: "Team", value: "20+" }
+                ]).map((stat: any, idx: number) => (
+                  <motion.div 
+                    key={idx} 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="bg-brand p-8 rounded-[30px] min-w-[200px] text-center shadow-2xl relative overflow-hidden group"
+                  >
+                    <div className="absolute inset-0 shimmer-effect opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="text-dark relative z-10">
+                      <div className="text-4xl font-black mb-1">{stat.value}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest opacity-80">{stat.label}</div>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </div>
           </section>
