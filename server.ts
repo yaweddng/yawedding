@@ -139,7 +139,7 @@ async function startServer() {
     let manifest = {
       name: "YA Wedding | Luxury Wedding Planning",
       short_name: "YA Wedding",
-      description: "Premium wedding planning and photography services.",
+      description: "YA Wedding is Dubai's premier luxury wedding planner, specializing in traditional Emarati, Indian, and Western weddings. Experience seamless planning, premium decor, and unforgettable celebrations with our all-in-one wedding management platform.",
       start_url: "/",
       display: "standalone",
       background_color: "#0a0a0a",

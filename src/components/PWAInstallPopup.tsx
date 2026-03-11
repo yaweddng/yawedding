@@ -18,9 +18,17 @@ export const PWAInstallPopup = () => {
     // Show popup after 10 seconds to encourage installation
     // User requested to not rely on browser checks
     const timer = setTimeout(() => {
-      // Only show if they haven't dismissed it recently
+      // Check if user is logged in
+      const user = localStorage.getItem('ya-user');
+      if (user) return; // Do not show if logged in
+
+      // Check if already installed
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+      if (isStandalone) return; // Do not show if already installed
+
+      // Only show if they haven't dismissed it recently (e.g., 30 days)
       const lastDismissed = localStorage.getItem('pwa-popup-dismissed');
-      if (!lastDismissed || Date.now() - parseInt(lastDismissed) > 24 * 60 * 60 * 1000) {
+      if (!lastDismissed || Date.now() - parseInt(lastDismissed) > 30 * 24 * 60 * 60 * 1000) {
         setShow(true);
       }
     }, 10000);
