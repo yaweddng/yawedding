@@ -41,7 +41,12 @@ export const PWAInstallPopup = () => {
       setShow(false);
     } else {
       // Fallback for iOS or if prompt is not available
-      alert('To install: Tap the share button and select "Add to Home Screen"');
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIOS) {
+        alert('To install on iOS:\n1. Tap the Share button at the bottom of the screen.\n2. Scroll down and tap "Add to Home Screen".');
+      } else {
+        alert('To install: Check your browser menu for an "Install" or "Add to Home Screen" option.');
+      }
       setShow(false);
     }
   };
