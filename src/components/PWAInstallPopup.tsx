@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Smartphone, Sparkles } from 'lucide-react';
+import { Download, X, Smartphone, Sparkles, Share, PlusSquare } from 'lucide-react';
 
 export const PWAInstallPopup = () => {
   const [show, setShow] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -14,19 +15,27 @@ export const PWAInstallPopup = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Show popup after 30 seconds
-    const timer = setTimeout(() => {
-      setShow(true);
-    }, 30000);
+    // Show popup after 10 seconds to encourage installation, unless already in standalone mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    
+    let timer: NodeJS.Timeout;
+    if (!isStandalone) {
+      timer = setTimeout(() => {
+        setShow(true);
+      }, 10000);
+    }
 
     // Custom event to trigger from other pages
-    const handleShowEvent = () => setShow(true);
+    const handleShowEvent = () => {
+      setShow(true);
+      setShowInstructions(false);
+    };
     window.addEventListener('show-pwa-install', handleShowEvent);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('show-pwa-install', handleShowEvent);
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
@@ -36,20 +45,16 @@ export const PWAInstallPopup = () => {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         console.log('User accepted the install prompt');
+        setShow(false);
       }
       setDeferredPrompt(null);
-      setShow(false);
     } else {
-      // Fallback for iOS or if prompt is not available
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      if (isIOS) {
-        alert('To install on iOS:\n1. Tap the Share button at the bottom of the screen.\n2. Scroll down and tap "Add to Home Screen".');
-      } else {
-        alert('To install: Check your browser menu for an "Install" or "Add to Home Screen" option.');
-      }
-      setShow(false);
+      // Show manual instructions instead of alert
+      setShowInstructions(true);
     }
   };
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   return (
     <AnimatePresence>
@@ -71,37 +76,80 @@ export const PWAInstallPopup = () => {
               <X size={20} />
             </button>
 
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center shrink-0">
-                <Smartphone className="text-brand" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Sparkles size={14} className="text-brand" />
-                  <span className="text-brand text-[10px] font-bold uppercase tracking-widest">Mobile Experience</span>
+            {!showInstructions ? (
+              <>
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center shrink-0">
+                    <Smartphone className="text-brand" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles size={14} className="text-brand" />
+                      <span className="text-brand text-[10px] font-bold uppercase tracking-widest">Mobile Experience</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Install YA Wedding</h3>
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                      Get the best experience with our mobile app. Fast, offline-ready, and secure.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold text-white">Install YA Wedding</h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  Get the best experience with our mobile app. Fast, offline-ready, and secure.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleInstall}
-                className="flex-grow bg-brand text-dark font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleInstall}
+                    className="flex-grow bg-brand text-dark font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+                  >
+                    <Download size={18} />
+                    Install App
+                  </button>
+                  <button
+                    onClick={() => setShow(false)}
+                    className="px-6 py-3 rounded-xl border border-white/10 text-gray-400 font-medium hover:bg-white/5 transition-colors"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
               >
-                <Download size={18} />
-                Install
-              </button>
-              <button
-                onClick={() => setShow(false)}
-                className="px-6 py-3 rounded-xl border border-white/10 text-gray-400 font-medium hover:bg-white/5 transition-colors"
-              >
-                Not now
-              </button>
-            </div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+                    <Download className="text-brand" size={20} />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">How to Install</h3>
+                </div>
+                
+                {isIOS ? (
+                  <div className="space-y-4 text-sm text-gray-300">
+                    <div className="flex items-start gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+                      <div className="bg-white/10 p-1.5 rounded-lg shrink-0"><Share size={16} className="text-brand" /></div>
+                      <p>1. Tap the <strong>Share</strong> button at the bottom of your screen.</p>
+                    </div>
+                    <div className="flex items-start gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+                      <div className="bg-white/10 p-1.5 rounded-lg shrink-0"><PlusSquare size={16} className="text-brand" /></div>
+                      <p>2. Scroll down and tap <strong>Add to Home Screen</strong>.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 text-sm text-gray-300">
+                    <div className="flex items-start gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+                      <div className="bg-white/10 p-1.5 rounded-lg shrink-0"><Smartphone size={16} className="text-brand" /></div>
+                      <p>Tap the menu icon (⋮) in your browser and select <strong>Install App</strong> or <strong>Add to Home Screen</strong>.</p>
+                    </div>
+                  </div>
+                )}
+                
+                <button
+                  onClick={() => setShow(false)}
+                  className="w-full mt-6 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-colors"
+                >
+                  Got it
+                </button>
+              </motion.div>
+            )}
           </div>
         </motion.div>
       )}

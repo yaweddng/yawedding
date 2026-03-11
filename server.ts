@@ -1468,17 +1468,100 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  const injectSEO = (html: string, url: string) => {
+    try {
+      const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf-8"));
+      let title = settings.siteName || "YA Wedding";
+      let description = settings.siteDescription || "Luxury Wedding Planner Dubai";
+      let image = settings.siteLogo || "https://tsameemevents.com/wp-content/uploads/luxury-outdoor-wedding-reception-sunset-lakeview.webp";
+
+      if (url.startsWith('/services/')) {
+        const id = url.split('/')[2];
+        const services = JSON.parse(fs.readFileSync(SERVICES_PATH, "utf-8")).services;
+        const service = services.find((s: any) => s.id === id);
+        if (service) {
+          title = `${service.name} | ${settings.siteName}`;
+          description = service.seoDescription || service.description;
+          image = service.image || image;
+        }
+      } else if (url.startsWith('/blog/')) {
+        const id = url.split('/')[2];
+        const blogs = JSON.parse(fs.readFileSync(BLOGS_PATH, "utf-8")).blogs;
+        const blog = blogs.find((b: any) => b.id === id);
+        if (blog) {
+          title = `${blog.title} | ${settings.siteName}`;
+          description = blog.excerpt;
+          image = blog.image || image;
+        }
+      } else {
+        const slug = url === '/' ? 'home' : url.split('/')[1];
+        const pages = JSON.parse(fs.readFileSync(PAGES_PATH, "utf-8"))?.pages || [];
+        const page = pages.find((p: any) => p.slug === slug);
+        if (page) {
+          title = `${page.title} | ${settings.siteName}`;
+          description = page.description || description;
+        }
+      }
+
+      const metaTags = `
+    <title>${title}</title>
+    <meta name="description" content="${description}" />
+    <meta property="og:title" content="${title}" />
+    <meta property="og:description" content="${description}" />
+    <meta property="og:image" content="${image}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${title}" />
+    <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:image" content="${image}" />
+      `;
+
+      let newHtml = html.replace(/<title>.*?<\/title>/, '');
+      newHtml = newHtml.replace(/<meta name="description".*?>/, '');
+      return newHtml.replace('</head>', `${metaTags}</head>`);
+    } catch (e) {
+      console.error("SEO Injection Error:", e);
+      return html;
+    }
+  };
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
+      appType: "custom",
     });
     app.use(vite.middlewares);
+
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api/') || url.includes('.')) {
+        return next();
+      }
+
+      try {
+        let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        template = injectSEO(template, url);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
   } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist/index.html"));
+    app.use(express.static(path.join(__dirname, "dist"), { index: false }));
+    app.use("*", (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api/') || url.includes('.')) {
+        return next();
+      }
+      try {
+        let template = fs.readFileSync(path.join(__dirname, "dist/index.html"), "utf-8");
+        template = injectSEO(template, url);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e) {
+        res.sendFile(path.join(__dirname, "dist/index.html"));
+      }
     });
   }
 
