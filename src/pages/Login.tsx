@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LogIn, UserPlus, Mail, Lock, User, ArrowRight, ShieldCheck } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, User, ArrowRight, ShieldCheck, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const Login = () => {
-  const [mode, setMode] = React.useState<'login' | 'register'>('login');
+  const [mode, setMode] = React.useState<'login' | 'register' | 'register-customer'>('login');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [name, setName] = React.useState('');
@@ -18,7 +18,10 @@ export const Login = () => {
     setError('');
     setLoading(true);
 
-    const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+    let endpoint = '/api/auth/login';
+    if (mode === 'register') endpoint = '/api/auth/register';
+    if (mode === 'register-customer') endpoint = '/api/auth/register-customer';
+
     const body = mode === 'login' 
       ? { email, password } 
       : { email, password, name, username };
@@ -37,6 +40,8 @@ export const Login = () => {
         
         if (data.user.role === 'admin') {
           navigate('/admin');
+        } else if (data.user.role === 'customer') {
+          navigate('/inbox');
         } else {
           navigate('/dashboard');
         }
@@ -64,15 +69,15 @@ export const Login = () => {
       >
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-brand/10 rounded-2xl text-brand mb-6">
-            {mode === 'login' ? <LogIn size={32} /> : <UserPlus size={32} />}
+            {mode === 'login' ? <LogIn size={32} /> : mode === 'register' ? <UserPlus size={32} /> : <MessageSquare size={32} />}
           </div>
           <h1 className="text-3xl font-bold mb-2">
-            {mode === 'login' ? 'Welcome Back' : 'Join the Partnership'}
+            {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Join the Partnership' : 'Register as Customer'}
           </h1>
           <p className="text-gray-400">
             {mode === 'login' 
               ? 'Enter your credentials to access your dashboard' 
-              : 'Create your partner account to start building'}
+              : mode === 'register' ? 'Create your partner account to start building' : 'Create an account to chat with our team'}
           </p>
         </div>
 
@@ -83,7 +88,7 @@ export const Login = () => {
             </div>
           )}
 
-          {mode === 'register' && (
+          {(mode === 'register' || mode === 'register-customer') && (
             <>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Full Name</label>
@@ -161,16 +166,34 @@ export const Login = () => {
             )}
           </button>
 
-          <div className="text-center pt-4">
-            <button
-              type="button"
-              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-              className="text-sm text-gray-400 hover:text-brand transition-colors"
-            >
-              {mode === 'login' 
-                ? "Don't have an account? Register here" 
-                : "Already have an account? Sign in"}
-            </button>
+          <div className="text-center pt-4 flex flex-col gap-2">
+            {mode !== 'login' && (
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className="text-sm text-gray-400 hover:text-brand transition-colors"
+              >
+                Already have an account? Sign in
+              </button>
+            )}
+            {mode !== 'register' && (
+              <button
+                type="button"
+                onClick={() => setMode('register')}
+                className="text-sm text-gray-400 hover:text-brand transition-colors"
+              >
+                Want to be a partner? Register here
+              </button>
+            )}
+            {mode !== 'register-customer' && (
+              <button
+                type="button"
+                onClick={() => setMode('register-customer')}
+                className="text-sm text-gray-400 hover:text-brand transition-colors"
+              >
+                Just want to chat? Register as Customer
+              </button>
+            )}
           </div>
         </form>
 

@@ -15,15 +15,15 @@ export const PWAInstallPopup = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Show popup after 10 seconds to encourage installation, unless already in standalone mode
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-    
-    let timer: NodeJS.Timeout;
-    if (!isStandalone) {
-      timer = setTimeout(() => {
+    // Show popup after 10 seconds to encourage installation
+    // User requested to not rely on browser checks
+    const timer = setTimeout(() => {
+      // Only show if they haven't dismissed it recently
+      const lastDismissed = localStorage.getItem('pwa-popup-dismissed');
+      if (!lastDismissed || Date.now() - parseInt(lastDismissed) > 24 * 60 * 60 * 1000) {
         setShow(true);
-      }, 10000);
-    }
+      }
+    }, 10000);
 
     // Custom event to trigger from other pages
     const handleShowEvent = () => {
@@ -70,7 +70,10 @@ export const PWAInstallPopup = () => {
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-brand/10 rounded-full blur-2xl" />
             
             <button 
-              onClick={() => setShow(false)}
+              onClick={() => {
+                setShow(false);
+                localStorage.setItem('pwa-popup-dismissed', Date.now().toString());
+              }}
               className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
             >
               <X size={20} />

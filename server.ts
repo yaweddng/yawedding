@@ -242,6 +242,28 @@ async function startServer() {
       res.status(500).json({ error: "Installation failed" });
     }
   });
+  app.post("/api/auth/register-customer", async (req, res) => {
+    const { email, password, name, username } = req.body;
+    
+    try {
+      const existingUser = db.prepare("SELECT * FROM users WHERE email = ? OR username = ?").get(email, username);
+      if (existingUser) {
+        return res.status(400).json({ error: "User already exists" });
+      }
+
+      const userId = Math.random().toString(36).substr(2, 9);
+      const hashedPassword = await bcrypt.hash(password, 10);
+      db.prepare(`
+        INSERT INTO users (id, email, password, name, username, role)
+        VALUES (?, ?, ?, ?, ?, 'customer')
+      `).run(userId, email, hashedPassword, name, username);
+
+      res.json({ success: true, user: { id: userId, email, name, role: 'customer' } });
+    } catch (e) {
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
   app.post("/api/auth/register", async (req, res) => {
     const { email, password, name, username } = req.body;
     
@@ -297,6 +319,71 @@ async function startServer() {
       token: `user-token-${user.id}`, 
       user: { id: user.id, email: user.email, name: user.name, role: user.role } 
     });
+  });
+
+  // Messages Endpoints
+  app.get("/api/messages/conversations", (req, res) => {
+    // Only admin can list all conversations
+    try {
+      const customers = db.prepare(`
+        SELECT id, name, email, role
+        FROM users
+        WHERE role = 'customer'
+      `).all();
+      res.json(customers);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+
+  app.get("/api/messages/:otherUserId", (req, res) => {
+    const { otherUserId } = req.params;
+    const currentUserId = req.query.userId as string; // Passed from frontend for simplicity
+
+    try {
+      const messages = db.prepare(`
+        SELECT * FROM messages 
+        WHERE (sender_id = ? AND receiver_id = ?) 
+           OR (sender_id = ? AND receiver_id = ?)
+        ORDER BY created_at ASC
+      `).all(currentUserId, otherUserId, otherUserId, currentUserId);
+      
+      // Mark as read
+      db.prepare(`
+        UPDATE messages SET is_read = 1 
+        WHERE receiver_id = ? AND sender_id = ? AND is_read = 0
+      `).run(currentUserId, otherUserId);
+
+      res.json(messages);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/messages", (req, res) => {
+    const { sender_id, receiver_id, content } = req.body;
+    try {
+      const id = Math.random().toString(36).substr(2, 9);
+      db.prepare(`
+        INSERT INTO messages (id, sender_id, receiver_id, content)
+        VALUES (?, ?, ?, ?)
+      `).run(id, sender_id, receiver_id, content);
+      
+      const newMessage = db.prepare("SELECT * FROM messages WHERE id = ?").get(id);
+      res.json(newMessage);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  app.get("/api/messages/unread/:userId", (req, res) => {
+    const { userId } = req.params;
+    try {
+      const count = db.prepare("SELECT COUNT(*) as count FROM messages WHERE receiver_id = ? AND is_read = 0").get(userId) as { count: number };
+      res.json({ unread: count.count });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch unread count" });
+    }
   });
 
   // Admin Security Endpoints
@@ -852,7 +939,7 @@ async function startServer() {
     const blogs = JSON.parse(fs.readFileSync(BLOGS_PATH, "utf-8")).blogs;
     const promos = JSON.parse(fs.readFileSync(PROMOS_PATH, "utf-8")).promos;
     const packages = JSON.parse(fs.readFileSync(PACKAGES_DATA_PATH, "utf-8")).packages;
-    const baseUrl = "https://ya.tssmeemevents.com";
+    const baseUrl = "https://ya.tsameemevents.com";
 
     let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -891,7 +978,7 @@ async function startServer() {
 
   app.get("/robots.txt", (req, res) => {
     res.type("text/plain");
-    res.send("User-agent: *\nAllow: /\nSitemap: https://ya.tssmeemevents.com/sitemap.xml");
+    res.send("User-agent: *\nAllow: /\nSitemap: https://ya.tsameemevents.com/sitemap.xml");
   });
 
   app.get("/api/services", (req, res) => {
@@ -1533,14 +1620,14 @@ async function startServer() {
     app.use(vite.middlewares);
 
     app.use('*', async (req, res, next) => {
-      const url = req.originalUrl;
+      const url = req.path;
       if (url.startsWith('/api/') || url.includes('.')) {
         return next();
       }
 
       try {
         let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
-        template = await vite.transformIndexHtml(url, template);
+        template = await vite.transformIndexHtml(req.originalUrl, template);
         template = injectSEO(template, url);
         res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
       } catch (e) {
@@ -1551,7 +1638,7 @@ async function startServer() {
   } else {
     app.use(express.static(path.join(__dirname, "dist"), { index: false }));
     app.use("*", (req, res, next) => {
-      const url = req.originalUrl;
+      const url = req.path;
       if (url.startsWith('/api/') || url.includes('.')) {
         return next();
       }

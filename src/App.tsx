@@ -18,6 +18,7 @@ import { Login } from './pages/Login';
 import { UserDashboard } from './pages/UserDashboard';
 import { MobileApp } from './pages/MobileApp';
 import { AdminSecurityCheck } from './pages/AdminSecurityCheck';
+import { Inbox } from './pages/Inbox';
 import ScrollToTop from './components/ScrollToTop';
 import { HelpTab } from './components/HelpTab';
 import { PWAInstallPopup } from './components/PWAInstallPopup';
@@ -168,6 +169,7 @@ export default function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/mobile-app" element={<MobileApp />} />
                   <Route path="/dashboard" element={<UserDashboard />} />
+                  <Route path="/inbox" element={<Inbox />} />
                   <Route path="/u/:username" element={<DynamicPageWrapper isUserSite />} />
                   <Route path="/u/:username/:slug" element={<DynamicPageWrapper isUserSite />} />
                   <Route path="/p/:slug" element={<DynamicPageWrapper />} />

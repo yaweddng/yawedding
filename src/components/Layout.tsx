@@ -41,9 +41,38 @@ export const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [activeDropdown, setActiveDropdown] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [unreadCount, setUnreadCount] = React.useState(0);
   const { settings } = useCMSData('layout');
   const location = useLocation();
   const navigate = useNavigate();
+
+  const user = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('ya-user') || 'null');
+    } catch {
+      return null;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await fetch(`/api/messages/unread/${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadCount(data.unreadCount);
+        }
+      } catch (err) {
+        console.error('Failed to fetch unread count:', err);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 10000); // Poll every 10s
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,9 +183,24 @@ export const Header = () => {
               <button 
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
                 className="text-gray-400 hover:text-brand transition-colors"
+                title="Search"
               >
                 <Search size={20} />
               </button>
+              {user && (
+                <Link 
+                  to="/inbox"
+                  className="relative text-gray-400 hover:text-brand transition-colors"
+                  title="Inbox"
+                >
+                  <MessageSquare size={20} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              )}
               {settings.header.ctas.map((cta, idx) => (
                 <Link
                   key={idx}
@@ -182,6 +226,19 @@ export const Header = () => {
             >
               <Search size={20} />
             </button>
+            {user && (
+              <Link 
+                to="/inbox"
+                className="relative text-gray-400 hover:text-brand transition-colors"
+              >
+                <MessageSquare size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
             <button className="text-white" onClick={() => setIsOpen(!isOpen)}>
               {isOpen ? <X /> : <Menu />}
             </button>
