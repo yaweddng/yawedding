@@ -54,7 +54,17 @@ export const Header = () => {
     }
   };
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <header className="fixed top-0 left-0 right-0 z-50 bg-dark/80 backdrop-blur-lg border-bottom border-white/5">
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-20">
+            <Link to="/" className="text-2xl font-bold text-brand font-script">YA Wedding</Link>
+          </div>
+        </nav>
+      </header>
+    );
+  }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-dark/80 backdrop-blur-lg border-bottom border-white/5">
@@ -299,7 +309,15 @@ export const Header = () => {
 export const Footer = () => {
   const { settings } = useCMSData('layout');
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <footer className="bg-dark-lighter pt-20 pb-10 border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
+          <p>&copy; {new Date().getFullYear()} YA Wedding. All rights reserved.</p>
+        </div>
+      </footer>
+    );
+  }
 
   return (
     <footer className="bg-dark-lighter pt-20 pb-10 border-t border-white/5">

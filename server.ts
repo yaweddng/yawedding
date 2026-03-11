@@ -93,16 +93,6 @@ async function startServer() {
   ensureFile(BLOCKED_IPS_PATH, { blocked: [] });
   ensureFile(REDIRECTIONS_PATH, { redirections: [] });
 
-  // Blocked IP Middleware
-  app.use((req, res, next) => {
-    const blockedData = JSON.parse(fs.readFileSync(BLOCKED_IPS_PATH, "utf-8"));
-    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    if (blockedData.blocked.includes(clientIp)) {
-      return res.status(403).json({ error: "Access blocked due to multiple failed attempts." });
-    }
-    next();
-  });
-
   // Redirections Middleware
   app.use((req, res, next) => {
     try {
