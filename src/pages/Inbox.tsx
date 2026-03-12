@@ -111,6 +111,10 @@ export const Inbox = () => {
 
     connectWS();
 
+    // Request permissions
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
     checkForUpdates();
   }, [navigate]);
 
@@ -377,20 +381,7 @@ export const Inbox = () => {
       .then(res => res.json())
       .then(data => {
         if (data.call) {
-          const call = data.call;
-          // If the call is connected, it's dead because we lost WebRTC state
-          // If we are the caller and it's still 'calling', it's stale
-          if (call.status === 'connected' || (call.status === 'calling' && call.caller_id === user.id)) {
-            fetch(`/api/calls/${call.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'terminated' })
-            }).catch(console.error);
-          } else if (call.status === 'calling' && call.receiver_id === user.id) {
-            // It's an incoming call, show it
-            setActiveCall({ ...call, isIncoming: true });
-            playSound('calling', true);
-          }
+          setActiveCall(data.call);
         }
       })
       .catch(err => console.error('Failed to check active calls:', err));
@@ -410,7 +401,7 @@ export const Inbox = () => {
         if (data.length > messages.length && messages.length > 0) {
           const lastMsg = data[data.length - 1];
           if (lastMsg.sender_id !== user.id) {
-            playSound('notification');
+            audioRef.current?.play().catch(e => console.log('Audio play failed:', e));
           }
           
           // Only scroll if we were already at the bottom
@@ -953,47 +944,47 @@ export const Inbox = () => {
 
               {/* Incoming Call Card */}
               {activeCall.isIncoming && activeCall.status === 'calling' && (
-                <div className="fixed inset-0 z-50 bg-dark flex flex-col items-center justify-center p-8">
-                  <div className="text-center mb-16">
-                    <div className="w-32 h-32 rounded-full bg-brand/20 flex items-center justify-center mx-auto mb-8 animate-bounce">
-                      {activeCall.type === 'video' ? <Video size={64} className="text-brand" /> : <Phone size={64} className="text-brand" />}
+                <div className="bg-black/40 backdrop-blur-xl border border-white/10 p-8 rounded-3xl max-w-sm w-full mx-4 shadow-2xl">
+                  <div className="text-center mb-8">
+                    <div className="w-24 h-24 rounded-full bg-brand/20 flex items-center justify-center mx-auto mb-4 animate-bounce">
+                      {activeCall.type === 'video' ? <Video size={40} className="text-brand" /> : <Phone size={40} className="text-brand" />}
                     </div>
-                    <h3 className="text-4xl font-bold mb-2">{activeCall.caller_name || activeCall.caller_username}</h3>
-                    <p className="text-xl text-gray-400">{activeCall.caller_role}</p>
-                    <p className="text-2xl text-brand mt-8 font-medium animate-pulse">Incoming {activeCall.type} call...</p>
+                    <h3 className="text-2xl font-bold mb-1">{activeCall.caller_name || activeCall.caller_username}</h3>
+                    <p className="text-gray-400">{activeCall.caller_role}</p>
+                    <p className="text-brand mt-4 font-medium">Incoming {activeCall.type} call...</p>
                   </div>
-                  <div className="flex justify-center gap-12">
+                  <div className="flex justify-center gap-6">
                     <button 
                       onClick={handleRejectCall}
-                      className="w-24 h-24 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                      className="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
                       title="Decline"
                     >
-                      <PhoneOff size={40} />
+                      <PhoneOff size={28} />
                     </button>
                     {activeCall.type === 'video' ? (
-                      <div className="flex gap-8">
+                      <div className="flex gap-4">
                         <button 
                           onClick={() => handleAcceptCall(false)}
-                          className="w-24 h-24 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-all animate-pulse"
+                          className="w-16 h-16 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-all animate-pulse"
                           title="Continue with Audio"
                         >
-                          <Phone size={40} />
+                          <Phone size={28} />
                         </button>
                         <button 
                           onClick={() => handleAcceptCall(true)}
-                          className="w-24 h-24 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all animate-pulse"
+                          className="w-16 h-16 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all animate-pulse"
                           title="Continue with Video"
                         >
-                          <Video size={40} />
+                          <Video size={28} />
                         </button>
                       </div>
                     ) : (
                       <button 
                         onClick={() => handleAcceptCall(true)}
-                        className="w-24 h-24 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-all animate-pulse"
+                        className="w-16 h-16 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-all animate-pulse"
                         title="Accept"
                       >
-                        <Phone size={40} />
+                        <Phone size={28} />
                       </button>
                     )}
                   </div>

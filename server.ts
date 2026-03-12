@@ -2682,12 +2682,6 @@ async function startServer() {
 
       ws.on('close', () => {
         clients.delete(userId);
-        // Terminate any active calls for this user
-        try {
-          db.prepare("UPDATE active_calls SET status = 'terminated', ended_at = CURRENT_TIMESTAMP WHERE (caller_id = ? OR receiver_id = ?) AND status IN ('calling', 'connected')").run(userId, userId);
-        } catch (e) {
-          console.error('Failed to terminate calls on WS close:', e);
-        }
       });
     }
   });
