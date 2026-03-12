@@ -994,51 +994,51 @@ export const Inbox = () => {
 
             {/* Bottom Controls */}
             {(!activeCall.isIncoming || activeCall.status === 'connected') && (
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-2 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-20 max-w-[90%]">
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-4 bg-black/40 backdrop-blur-xl px-8 py-4 rounded-full border border-white/10 z-20 max-w-[90%]">
                 <button 
                   onClick={toggleMute}
-                  className={`p-3 rounded-full transition-all ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
+                  className={`p-4 rounded-full transition-all ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
                   title={isMuted ? "Unmute" : "Mute"}
                 >
-                  {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+                  {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
                 </button>
                 {activeCall.type === 'video' && (
                   <>
                     <button 
                       onClick={toggleVideo}
-                      className={`p-3 rounded-full transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
+                      className={`p-4 rounded-full transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
                       title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}
                     >
-                      {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                      {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
                     </button>
                     <button 
                       onClick={flipCamera}
-                      className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                      className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                       title="Flip Camera"
                     >
-                      <RefreshCw size={20} />
+                      <RefreshCw size={24} />
                     </button>
                   </>
                 )}
                 <button 
                   onClick={() => setIsSpeaker(!isSpeaker)}
-                  className={`p-3 rounded-full transition-all ${isSpeaker ? 'bg-brand/20 text-brand' : 'bg-white/10 hover:bg-white/20'}`}
+                  className={`p-4 rounded-full transition-all ${isSpeaker ? 'bg-brand/20 text-brand' : 'bg-white/10 hover:bg-white/20'}`}
                   title={isSpeaker ? "Speaker Off" : "Speaker On"}
                 >
-                  <Volume2 size={20} />
+                  <Volume2 size={24} />
                 </button>
                 <button 
-                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                  className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                   title="Add Participant"
                 >
-                  <UserPlus size={20} />
+                  <UserPlus size={24} />
                 </button>
                 <button 
                   onClick={handleEndCall}
-                  className="p-3 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all ml-2"
+                  className="p-4 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all ml-4"
                   title="Hang Up"
                 >
-                  <PhoneOff size={20} />
+                  <PhoneOff size={24} />
                 </button>
               </div>
             )}
