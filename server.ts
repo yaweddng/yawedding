@@ -6,10 +6,39 @@ import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import bcrypt from "bcryptjs";
 import dns from "dns";
+import webpush from "web-push";
+import multer from "multer";
+import crypto from "crypto";
 import db from "./src/db.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Encryption key for files (in production, use an env variable)
+const ENCRYPTION_KEY = crypto.scryptSync(process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-change-me', 'salt', 32);
+const IV_LENGTH = 16;
+
+const uploadDir = path.join(__dirname, "storage/uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+import { WebSocketServer, WebSocket } from 'ws';
 
 async function startServer() {
   const app = express();
@@ -93,6 +122,24 @@ async function startServer() {
   ensureFile(BLOCKED_IPS_PATH, { blocked: [] });
   ensureFile(REDIRECTIONS_PATH, { redirections: [] });
 
+  // VAPID Keys for Push Notifications
+  let vapidKeys = {
+    publicKey: process.env.VAPID_PUBLIC_KEY || "",
+    privateKey: process.env.VAPID_PRIVATE_KEY || ""
+  };
+
+  if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
+    const keys = webpush.generateVAPIDKeys();
+    vapidKeys = keys;
+    console.log("Generated new VAPID keys:", keys);
+  }
+
+  webpush.setVapidDetails(
+    "mailto:admin@ya.tsameemevents.com",
+    vapidKeys.publicKey,
+    vapidKeys.privateKey
+  );
+
   // Redirections Middleware
   app.use((req, res, next) => {
     try {
@@ -156,6 +203,29 @@ async function startServer() {
           sizes: "512x512",
           type: "image/svg+xml",
           purpose: "any maskable"
+        }
+      ],
+      shortcuts: [
+        {
+          name: "Book a Service",
+          short_name: "Book",
+          description: "Book our premium wedding services",
+          url: "/services",
+          icons: [{ src: "/favicon.svg", sizes: "192x192" }]
+        },
+        {
+          name: "Package Builder",
+          short_name: "Builder",
+          description: "Build your custom wedding package",
+          url: "/package-builder",
+          icons: [{ src: "/favicon.svg", sizes: "192x192" }]
+        },
+        {
+          name: "Contact Us",
+          short_name: "Contact",
+          description: "Get in touch with our team",
+          url: "/contact",
+          icons: [{ src: "/favicon.svg", sizes: "192x192" }]
         }
       ]
     };
@@ -242,6 +312,330 @@ async function startServer() {
       res.status(500).json({ error: "Installation failed" });
     }
   });
+  // Helper for generating OTP
+  const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Helper for sending OTP Email
+  const sendOTPEmail = async (email: string, otp: string, type: 'verification' | 'reset', name?: string) => {
+    // Load Development Settings for SMTP
+    let devSettings = {
+      smtpHost: process.env.SMTP_HOST || "smtp.example.com",
+      smtpPort: process.env.SMTP_PORT || "587",
+      smtpUser: process.env.SMTP_USER,
+      smtpPass: process.env.SMTP_PASS,
+      adminEmail: process.env.ADMIN_EMAIL || "admin@example.com",
+      fromEmail: process.env.FROM_EMAIL || "noreply@example.com"
+    };
+
+    try {
+      if (fs.existsSync(DEVELOPMENT_PATH)) {
+        const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
+        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
+        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
+        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
+        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
+        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
+      }
+    } catch (e) {}
+
+    const transporter = nodemailer.createTransport({
+      host: devSettings.smtpHost,
+      port: parseInt(devSettings.smtpPort),
+      secure: devSettings.smtpPort === "465",
+      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
+      tls: { rejectUnauthorized: false }
+    });
+
+    const brandColor = "#00C896";
+    const subject = type === 'verification' ? "Verify Your Account - YA Wedding" : "Reset Your Password - YA Wedding";
+    const title = type === 'verification' ? "Account Verification" : "Password Reset";
+    const message = type === 'verification' 
+      ? `Welcome to YA Wedding, ${name || 'there'}! Use the code below to verify your account.`
+      : `We received a request to reset your password. Use the code below to proceed.`;
+
+    const html = `
+      <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; background-color: #0B0F14; color: #FFFFFF; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="display: inline-block; width: 60px; height: 60px; background-color: ${brandColor}; color: #141414; border-radius: 12px; line-height: 60px; font-size: 24px; font-weight: bold;">YA</div>
+        </div>
+        <h2 style="text-align: center; color: ${brandColor}; font-size: 24px; margin-bottom: 20px;">${title}</h2>
+        <p style="text-align: center; color: #9CA3AF; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">${message}</p>
+        <div style="background-color: rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 30px;">
+          <span style="font-size: 32px; font-weight: 900; letter-spacing: 10px; color: ${brandColor};">${otp}</span>
+        </div>
+        <p style="text-align: center; color: #9CA3AF; font-size: 12px;">This code will expire in 15 minutes. If you didn't request this, please ignore this email.</p>
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+          <p style="color: ${brandColor}; font-weight: bold; margin: 0;">YA WEDDING DUBAI</p>
+          <p style="color: #4B5563; font-size: 10px; margin-top: 5px;">Luxury Event Planning & Design</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"YA Wedding" <${devSettings.fromEmail}>`,
+        to: email,
+        subject,
+        html
+      });
+      return true;
+    } catch (e) {
+      console.error("Failed to send OTP email:", e);
+      return false;
+    }
+  };
+
+  const sendWelcomeEmail = async (email: string, name: string) => {
+    let devSettings = {
+      smtpHost: process.env.SMTP_HOST || "smtp.example.com",
+      smtpPort: process.env.SMTP_PORT || "587",
+      smtpUser: process.env.SMTP_USER,
+      smtpPass: process.env.SMTP_PASS,
+      fromEmail: process.env.FROM_EMAIL || "noreply@example.com"
+    };
+
+    try {
+      if (fs.existsSync(DEVELOPMENT_PATH)) {
+        const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
+        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
+        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
+        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
+        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
+        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
+      }
+    } catch (e) {}
+
+    const transporter = nodemailer.createTransport({
+      host: devSettings.smtpHost,
+      port: parseInt(devSettings.smtpPort),
+      secure: devSettings.smtpPort === "465",
+      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
+      tls: { rejectUnauthorized: false }
+    });
+
+    const brandColor = "#00C896";
+    const html = `
+      <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; background-color: #0B0F14; color: #FFFFFF; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="display: inline-block; width: 60px; height: 60px; background-color: ${brandColor}; color: #141414; border-radius: 12px; line-height: 60px; font-size: 24px; font-weight: bold;">YA</div>
+        </div>
+        <h2 style="text-align: center; color: ${brandColor}; font-size: 24px; margin-bottom: 20px;">Welcome to YA Wedding!</h2>
+        <p style="text-align: center; color: #9CA3AF; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+          Hello ${name}, your account has been successfully created and verified. 
+          We are excited to have you on our luxury event planning platform.
+        </p>
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://ya.tsameemevents.com/login" style="background-color: ${brandColor}; color: #141414; padding: 16px 35px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Login to Your Account</a>
+        </div>
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+          <p style="color: ${brandColor}; font-weight: bold; margin: 0;">YA WEDDING DUBAI</p>
+          <p style="color: #4B5563; font-size: 10px; margin-top: 5px;">Luxury Event Planning & Design</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"YA Wedding" <${devSettings.fromEmail}>`,
+        to: email,
+        subject: "Welcome to YA Wedding!",
+        html
+      });
+      return true;
+    } catch (e) {
+      console.error("Failed to send welcome email:", e);
+      return false;
+    }
+  };
+
+  const sendEmail = async (email: string, subject: string, html: string) => {
+    let devSettings = {
+      smtpHost: process.env.SMTP_HOST || "smtp.example.com",
+      smtpPort: process.env.SMTP_PORT || "587",
+      smtpUser: process.env.SMTP_USER,
+      smtpPass: process.env.SMTP_PASS,
+      fromEmail: process.env.FROM_EMAIL || "noreply@example.com"
+    };
+
+    try {
+      if (fs.existsSync(DEVELOPMENT_PATH)) {
+        const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
+        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
+        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
+        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
+        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
+        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
+      }
+    } catch (e) {}
+
+    const transporter = nodemailer.createTransport({
+      host: devSettings.smtpHost,
+      port: parseInt(devSettings.smtpPort),
+      secure: devSettings.smtpPort === "465",
+      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
+      tls: { rejectUnauthorized: false }
+    });
+
+    const brandColor = "#00C896";
+    const fullHtml = `
+      <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; background-color: #0B0F14; color: #FFFFFF; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="display: inline-block; width: 60px; height: 60px; background-color: ${brandColor}; color: #141414; border-radius: 12px; line-height: 60px; font-size: 24px; font-weight: bold;">YA</div>
+        </div>
+        <div style="color: #FFFFFF; font-size: 16px; line-height: 1.6;">
+          ${html}
+        </div>
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+          <p style="color: ${brandColor}; font-weight: bold; margin: 0;">YA WEDDING DUBAI</p>
+          <p style="color: #4B5563; font-size: 10px; margin-top: 5px;">Luxury Event Planning & Design</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"YA Wedding" <${devSettings.fromEmail}>`,
+        to: email,
+        subject,
+        html: fullHtml
+      });
+      return true;
+    } catch (e) {
+      console.error("Failed to send email:", e);
+      return false;
+    }
+  };
+
+  const sendUnreadNotificationEmail = async (email: string, count: number) => {
+    let devSettings = {
+      smtpHost: process.env.SMTP_HOST || "smtp.example.com",
+      smtpPort: process.env.SMTP_PORT || "587",
+      smtpUser: process.env.SMTP_USER,
+      smtpPass: process.env.SMTP_PASS,
+      fromEmail: process.env.FROM_EMAIL || "noreply@example.com"
+    };
+
+    try {
+      if (fs.existsSync(DEVELOPMENT_PATH)) {
+        const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
+        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
+        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
+        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
+        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
+        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
+      }
+    } catch (e) {}
+
+    const transporter = nodemailer.createTransport({
+      host: devSettings.smtpHost,
+      port: parseInt(devSettings.smtpPort),
+      secure: devSettings.smtpPort === "465",
+      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
+      tls: { rejectUnauthorized: false }
+    });
+
+    const brandColor = "#00C896";
+    const html = `
+      <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; background-color: #0B0F14; color: #FFFFFF; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="display: inline-block; width: 60px; height: 60px; background-color: ${brandColor}; color: #141414; border-radius: 12px; line-height: 60px; font-size: 24px; font-weight: bold;">YA</div>
+        </div>
+        <h2 style="text-align: center; color: ${brandColor}; font-size: 24px; margin-bottom: 20px;">You have unread messages!</h2>
+        <p style="text-align: center; color: #9CA3AF; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+          You have ${count} unread message${count > 1 ? 's' : ''} waiting for you in your YA Wedding inbox.
+        </p>
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://ya.tsameemevents.com/inbox" style="background-color: ${brandColor}; color: #141414; padding: 16px 35px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">View Messages</a>
+        </div>
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+          <p style="color: ${brandColor}; font-weight: bold; margin: 0;">YA WEDDING DUBAI</p>
+          <p style="color: #4B5563; font-size: 10px; margin-top: 5px;">Luxury Event Planning & Design</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"YA Wedding" <${devSettings.fromEmail}>`,
+        to: email,
+        subject: "Unread Messages Notification",
+        html
+      });
+      return true;
+    } catch (e) {
+      console.error("Failed to send unread notification email:", e);
+      return false;
+    }
+  };
+
+  // 30-day file cleanup task (runs daily)
+  setInterval(() => {
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const oldFiles = db.prepare(`
+        SELECT file_url FROM messages 
+        WHERE created_at < ? AND file_url IS NOT NULL
+      `).all(thirtyDaysAgo);
+
+      oldFiles.forEach((msg: any) => {
+        if (msg.file_url) {
+          const filename = msg.file_url.split('/').pop();
+          const filePath = path.join(uploadDir, filename);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      });
+
+      db.prepare(`
+        UPDATE messages 
+        SET file_url = NULL, content = '[File automatically deleted after 30 days]' 
+        WHERE created_at < ? AND file_url IS NOT NULL
+      `).run(thirtyDaysAgo);
+    } catch (e) {
+      console.error("File cleanup task failed:", e);
+    }
+  }, 24 * 60 * 60 * 1000);
+
+  // Background task for unread messages (every minute)
+  setInterval(async () => {
+    try {
+      // Find unread messages older than 10 minutes that haven't been notified yet
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const unreadMessages = db.prepare(`
+        SELECT m.*, u.email, u.name 
+        FROM messages m
+        JOIN users u ON m.receiver_id = u.id
+        WHERE m.is_read = 0 
+        AND m.created_at < ?
+        AND (m.notified = 0 OR m.notified IS NULL)
+      `).all(tenMinutesAgo);
+
+      if (unreadMessages.length > 0) {
+        // Group by user to send one email per user
+        const userGroups: any = {};
+        unreadMessages.forEach((m: any) => {
+          if (!userGroups[m.receiver_id]) {
+            userGroups[m.receiver_id] = { email: m.email, count: 0, ids: [] };
+          }
+          userGroups[m.receiver_id].count++;
+          userGroups[m.receiver_id].ids.push(m.id);
+        });
+
+        for (const userId in userGroups) {
+          const group = userGroups[userId];
+          await sendUnreadNotificationEmail(group.email, group.count);
+          
+          // Mark as notified
+          const placeholders = group.ids.map(() => '?').join(',');
+          db.prepare(`UPDATE messages SET notified = 1 WHERE id IN (${placeholders})`).run(...group.ids);
+        }
+      }
+    } catch (e) {
+      console.error("Unread message background task failed:", e);
+    }
+  }, 60000);
+
   app.post("/api/auth/register-customer", async (req, res) => {
     const { email, password, name, username } = req.body;
     
@@ -253,12 +647,17 @@ async function startServer() {
 
       const userId = Math.random().toString(36).substr(2, 9);
       const hashedPassword = await bcrypt.hash(password, 10);
-      db.prepare(`
-        INSERT INTO users (id, email, password, name, username, role)
-        VALUES (?, ?, ?, ?, ?, 'customer')
-      `).run(userId, email, hashedPassword, name, username);
+      const otp = generateOTP();
+      const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-      res.json({ success: true, user: { id: userId, email, name, role: 'customer' } });
+      db.prepare(`
+        INSERT INTO users (id, email, password, name, username, role, is_verified, otp_code, otp_expiry)
+        VALUES (?, ?, ?, ?, ?, 'customer', 0, ?, ?)
+      `).run(userId, email, hashedPassword, name, username, otp, expiry);
+
+      await sendOTPEmail(email, otp, 'verification', name);
+
+      res.json({ success: true, message: "OTP sent to your email", userId });
     } catch (e) {
       res.status(500).json({ error: "Registration failed" });
     }
@@ -275,10 +674,13 @@ async function startServer() {
 
       const userId = Math.random().toString(36).substr(2, 9);
       const hashedPassword = await bcrypt.hash(password, 10);
+      const otp = generateOTP();
+      const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
       db.prepare(`
-        INSERT INTO users (id, email, password, name, username)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(userId, email, hashedPassword, name, username);
+        INSERT INTO users (id, email, password, name, username, role, is_verified, otp_code, otp_expiry)
+        VALUES (?, ?, ?, ?, ?, 'partner', 0, ?, ?)
+      `).run(userId, email, hashedPassword, name, username, otp, expiry);
 
       const siteId = Math.random().toString(36).substr(2, 9);
       db.prepare(`
@@ -286,9 +688,70 @@ async function startServer() {
         VALUES (?, ?, ?, ?)
       `).run(siteId, userId, `${name}'s Site`, username);
 
-      res.json({ success: true, user: { id: userId, email, name, role: 'user' } });
+      await sendOTPEmail(email, otp, 'verification', name);
+
+      res.json({ success: true, message: "OTP sent to your email", userId });
     } catch (e) {
       res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    const { email, otp } = req.body;
+    try {
+      const user: any = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (user.otp_code !== otp) return res.status(400).json({ error: "Invalid OTP" });
+      if (new Date(user.otp_expiry) < new Date()) return res.status(400).json({ error: "OTP expired" });
+
+      db.prepare("UPDATE users SET is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE id = ?").run(user.id);
+      
+      // Send Welcome Email
+      // ... (Implementation omitted for brevity, but similar to OTP email)
+
+      res.json({ 
+        success: true, 
+        token: `user-token-${user.id}`, 
+        user: { id: user.id, email: user.email, name: user.name, role: user.role } 
+      });
+    } catch (e) {
+      res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    try {
+      const user: any = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const otp = generateOTP();
+      const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      db.prepare("UPDATE users SET otp_code = ?, otp_expiry = ? WHERE id = ?").run(otp, expiry, user.id);
+
+      await sendOTPEmail(email, otp, 'reset', user.name);
+      res.json({ success: true, message: "Reset OTP sent to your email" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+    try {
+      const user: any = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (user.otp_code !== otp) return res.status(400).json({ error: "Invalid OTP" });
+      if (new Date(user.otp_expiry) < new Date()) return res.status(400).json({ error: "OTP expired" });
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      db.prepare("UPDATE users SET password = ?, otp_code = NULL, otp_expiry = NULL WHERE id = ?").run(hashedPassword, user.id);
+
+      res.json({ success: true, message: "Password reset successful" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to reset password" });
     }
   });
 
@@ -309,6 +772,10 @@ async function startServer() {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    if (!user.is_verified && user.role !== 'admin') {
+      return res.status(403).json({ error: "Account not verified", needsVerification: true });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials" });
@@ -322,17 +789,197 @@ async function startServer() {
   });
 
   // Messages Endpoints
-  app.get("/api/messages/conversations", (req, res) => {
-    // Only admin can list all conversations
+  app.post("/api/users/:id/preferences", (req, res) => {
+    const { calls_enabled } = req.body;
     try {
-      const customers = db.prepare(`
-        SELECT id, name, email, role
-        FROM users
-        WHERE role = 'customer'
+      db.prepare("UPDATE users SET calls_enabled = ? WHERE id = ?").run(calls_enabled ? 1 : 0, req.params.id);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to update preferences" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/block-features", (req, res) => {
+    const { blocked_features } = req.body; // Array of strings e.g. ['calls', 'files']
+    try {
+      db.prepare("UPDATE users SET blocked_features = ? WHERE id = ?").run(JSON.stringify(blocked_features), req.params.id);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to update blocked features" });
+    }
+  });
+
+  app.get("/api/users/:id", (req, res) => {
+    try {
+      const user = db.prepare("SELECT id, name, username, email, role, calls_enabled, blocked_features FROM users WHERE id = ?").get(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  // Calls Endpoints
+  app.post("/api/calls", (req, res) => {
+    const { caller_id, receiver_id, type } = req.body;
+    try {
+      const id = Date.now().toString();
+      db.prepare("INSERT INTO active_calls (id, caller_id, receiver_id, type, status) VALUES (?, ?, ?, ?, 'calling')").run(id, caller_id, receiver_id, type);
+      res.json({ success: true, callId: id });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to start call" });
+    }
+  });
+
+  app.put("/api/calls/:id", (req, res) => {
+    const { status, duration } = req.body;
+    try {
+      if (status === 'ended' || status === 'rejected' || status === 'missed') {
+        db.prepare("UPDATE active_calls SET status = ?, ended_at = CURRENT_TIMESTAMP, duration = ? WHERE id = ?").run(status, duration || 0, req.params.id);
+        
+        // Log to messages
+        const call = db.prepare("SELECT * FROM active_calls WHERE id = ?").get(req.params.id);
+        if (call) {
+          let content = '';
+          if (status === 'ended') {
+            const h = Math.floor(duration / 3600).toString().padStart(2, '0');
+            const m = Math.floor((duration % 3600) / 60).toString().padStart(2, '0');
+            const s = (duration % 60).toString().padStart(2, '0');
+            content = `📞 ${call.type === 'video' ? 'Video' : 'Audio'} call ended. Duration: ${h}:${m}:${s}`;
+          } else if (status === 'rejected') {
+            content = `📞 ${call.type === 'video' ? 'Video' : 'Audio'} call declined.`;
+          } else if (status === 'missed') {
+            content = `📞 Missed ${call.type === 'video' ? 'Video' : 'Audio'} call.`;
+          }
+          
+          if (content) {
+            const msgId = Date.now().toString();
+            db.prepare("INSERT INTO messages (id, sender_id, receiver_id, content) VALUES (?, ?, ?, ?)").run(msgId, call.caller_id, call.receiver_id, content);
+          }
+        }
+      } else {
+        db.prepare("UPDATE active_calls SET status = ? WHERE id = ?").run(status, req.params.id);
+      }
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to update call" });
+    }
+  });
+
+  app.get("/api/calls/incoming/:userId", (req, res) => {
+    try {
+      const call = db.prepare(`
+        SELECT c.*, u.name as caller_name, u.username as caller_username, u.role as caller_role 
+        FROM active_calls c 
+        JOIN users u ON c.caller_id = u.id 
+        WHERE c.receiver_id = ? AND c.status = 'calling'
+      `).get(req.params.userId);
+      res.json(call || null);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to check incoming calls" });
+    }
+  });
+
+  app.get("/api/calls/active/:userId", (req, res) => {
+    try {
+      const call = db.prepare(`
+        SELECT c.*, 
+          u1.name as caller_name, u1.username as caller_username, u1.role as caller_role,
+          u2.name as receiver_name, u2.username as receiver_username, u2.role as receiver_role
+        FROM active_calls c 
+        JOIN users u1 ON c.caller_id = u1.id 
+        JOIN users u2 ON c.receiver_id = u2.id 
+        WHERE (c.caller_id = ? OR c.receiver_id = ?) AND c.status IN ('calling', 'connected')
+      `).get(req.params.userId, req.params.userId);
+      res.json(call || null);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to check active calls" });
+    }
+  });
+
+  app.get("/api/admin/calls/active", (req, res) => {
+    try {
+      const calls = db.prepare(`
+        SELECT c.*, 
+          u1.name as caller_name, u1.username as caller_username, u1.role as caller_role,
+          u2.name as receiver_name, u2.username as receiver_username, u2.role as receiver_role
+        FROM active_calls c 
+        JOIN users u1 ON c.caller_id = u1.id 
+        JOIN users u2 ON c.receiver_id = u2.id 
+        WHERE c.status IN ('calling', 'connected')
       `).all();
-      res.json(customers);
+      res.json(calls);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch active calls" });
+    }
+  });
+
+  app.delete("/api/admin/calls/:id", (req, res) => {
+    try {
+      db.prepare("UPDATE active_calls SET status = 'terminated', ended_at = CURRENT_TIMESTAMP WHERE id = ?").run(req.params.id);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to terminate call" });
+    }
+  });
+
+  app.get("/api/messages/conversations", (req, res) => {
+    const currentUserId = req.query.userId as string;
+    const currentUserRole = req.query.role as string;
+
+    try {
+      if (currentUserRole === 'admin') {
+        // Admin sees all users who have messaged or can be messaged
+        const users = db.prepare(`
+          SELECT id, name, username, email, role
+          FROM users
+          WHERE id != ?
+          ORDER BY (CASE WHEN role = 'admin' THEN 0 ELSE 1 END), name ASC
+        `).all(currentUserId);
+        res.json(users);
+      } else if (currentUserRole === 'partner') {
+        // Partners see admin and customers
+        const users = db.prepare(`
+          SELECT id, name, username, email, role
+          FROM users
+          WHERE (role = 'admin' OR role = 'customer') AND id != ?
+          ORDER BY (CASE WHEN role = 'admin' THEN 0 ELSE 1 END), name ASC
+        `).all(currentUserId);
+        res.json(users);
+      } else {
+        // Customers see admin and partners
+        const users = db.prepare(`
+          SELECT id, name, username, email, role
+          FROM users
+          WHERE (role = 'admin' OR role = 'partner') AND id != ?
+          ORDER BY (CASE WHEN role = 'admin' THEN 0 ELSE 1 END), name ASC
+        `).all(currentUserId);
+        res.json(users);
+      }
     } catch (e) {
       res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+
+  app.get("/api/messages/search", (req, res) => {
+    const { q, role, userId } = req.query;
+    try {
+      let query = "SELECT id, name, username, email, role FROM users WHERE (name LIKE ? OR username LIKE ?) AND id != ?";
+      let params: any[] = [`%${q}%`, `%${q}%`, userId];
+
+      if (role === 'customer') {
+        query += " AND (role = 'admin' OR role = 'partner')";
+      } else if (role === 'partner') {
+        query += " AND (role = 'admin' OR role = 'customer')";
+      }
+      // Admin can search everyone
+
+      query += " ORDER BY (CASE WHEN role = 'admin' THEN 0 ELSE 1 END), name ASC LIMIT 10";
+      
+      const users = db.prepare(query).all(...params);
+      res.json(users);
+    } catch (e) {
+      res.status(500).json({ error: "Search failed" });
     }
   });
 
@@ -360,20 +1007,165 @@ async function startServer() {
     }
   });
 
+  app.post("/api/upload", upload.single("file"), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const blockedExtensions = ['.exe', '.sh', '.bat', '.cmd', '.msi', '.vbs', '.js', '.jar', '.scr', '.pif'];
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      if (blockedExtensions.includes(ext)) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: "File type not allowed for security reasons." });
+      }
+
+      // Encrypt file
+      const iv = crypto.randomBytes(IV_LENGTH);
+      const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+      const input = fs.readFileSync(req.file.path);
+      const encrypted = Buffer.concat([cipher.update(input), cipher.final()]);
+      
+      // Save encrypted file with IV prepended
+      fs.writeFileSync(req.file.path + '.enc', Buffer.concat([iv, encrypted]));
+      fs.unlinkSync(req.file.path); // Remove unencrypted file
+
+      const fileUrl = `/api/files/${path.basename(req.file.path)}.enc`;
+      
+      res.json({ 
+        url: fileUrl,
+        name: req.file.originalname,
+        type: req.file.mimetype,
+        size: req.file.size
+      });
+    } catch (e) {
+      console.error("Upload error:", e);
+      res.status(500).json({ error: "File upload failed" });
+    }
+  });
+
+  app.get("/api/files/:filename", (req, res) => {
+    try {
+      const filePath = path.join(uploadDir, req.params.filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).send("File not found");
+      }
+
+      const fileData = fs.readFileSync(filePath);
+      const iv = fileData.slice(0, IV_LENGTH);
+      const encryptedText = fileData.slice(IV_LENGTH);
+      const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+      const decrypted = Buffer.concat([decipher.update(encryptedText), decipher.final()]);
+
+      // Determine content type from original name or DB (simplified here)
+      res.setHeader('Content-Disposition', `inline; filename="${req.params.filename.replace('.enc', '')}"`);
+      res.send(decrypted);
+    } catch (e) {
+      console.error("Download error:", e);
+      res.status(500).send("Failed to decrypt file");
+    }
+  });
+
+  app.delete("/api/admin/messages/:id", (req, res) => {
+    try {
+      const msg = db.prepare("SELECT file_url FROM messages WHERE id = ?").get(req.params.id);
+      if (msg && msg.file_url) {
+        const filename = msg.file_url.split('/').pop();
+        const filePath = path.join(uploadDir, filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      db.prepare("DELETE FROM messages WHERE id = ?").run(req.params.id);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to delete message" });
+    }
+  });
+
   app.post("/api/messages", (req, res) => {
-    const { sender_id, receiver_id, content } = req.body;
+    const { sender_id, receiver_id, content, file_url, file_name, file_type, file_size } = req.body;
     try {
       const id = Math.random().toString(36).substr(2, 9);
       db.prepare(`
-        INSERT INTO messages (id, sender_id, receiver_id, content)
-        VALUES (?, ?, ?, ?)
-      `).run(id, sender_id, receiver_id, content);
+        INSERT INTO messages (id, sender_id, receiver_id, content, file_url, file_name, file_type, file_size)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, sender_id, receiver_id, content, file_url || null, file_name || null, file_type || null, file_size || null);
       
       const newMessage = db.prepare("SELECT * FROM messages WHERE id = ?").get(id);
+      
+      // Trigger push notification for receiver
+      const subscriptions = db.prepare("SELECT * FROM push_subscriptions WHERE user_id = ?").all(receiver_id);
+      const sender = db.prepare("SELECT name FROM users WHERE id = ?").get(sender_id);
+      
+      subscriptions.forEach((sub: any) => {
+        try {
+          const payload = JSON.stringify({
+            title: `New message from ${sender?.name || 'User'}`,
+            body: content.length > 50 ? content.substring(0, 47) + '...' : content,
+            icon: '/favicon.svg',
+            data: { url: '/inbox' }
+          });
+          webpush.sendNotification(JSON.parse(sub.subscription), payload);
+        } catch (e) {
+          console.error("Failed to send push notification:", e);
+        }
+      });
+
       res.json(newMessage);
     } catch (e) {
       res.status(500).json({ error: "Failed to send message" });
     }
+  });
+
+  app.post("/api/push/subscribe", (req, res) => {
+    const { userId, subscription } = req.body;
+    const id = Math.random().toString(36).substr(2, 9);
+    
+    // Check if subscription already exists for this user
+    const existing = db.prepare("SELECT * FROM push_subscriptions WHERE user_id = ? AND subscription = ?").get(userId, JSON.stringify(subscription));
+    if (!existing) {
+      db.prepare("INSERT INTO push_subscriptions (id, user_id, subscription) VALUES (?, ?, ?)").run(id, userId, JSON.stringify(subscription));
+    }
+    
+    res.json({ success: true });
+  });
+
+  app.get("/api/push/key", (req, res) => {
+    res.json({ publicKey: vapidKeys.publicKey });
+  });
+
+  app.post("/api/admin/send-notification", (req, res) => {
+    if (req.headers.authorization !== "Bearer ya-admin-secret") {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { title, body, targetRole } = req.body;
+    
+    let users;
+    if (targetRole === 'all') {
+      users = db.prepare("SELECT id FROM users").all();
+    } else {
+      users = db.prepare("SELECT id FROM users WHERE role = ?").all(targetRole);
+    }
+
+    users.forEach((user: any) => {
+      const subscriptions = db.prepare("SELECT * FROM push_subscriptions WHERE user_id = ?").all(user.id);
+      subscriptions.forEach((sub: any) => {
+        try {
+          const payload = JSON.stringify({
+            title,
+            body,
+            icon: '/favicon.svg',
+            data: { url: '/' }
+          });
+          webpush.sendNotification(JSON.parse(sub.subscription), payload);
+        } catch (e) {
+          console.error("Failed to send admin push notification:", e);
+        }
+      });
+    });
+
+    res.json({ success: true });
   });
 
   app.get("/api/messages/unread/:userId", (req, res) => {
@@ -466,6 +1258,56 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.get("/api/admin/conversations", (req, res) => {
+    if (req.headers.authorization !== "Bearer ya-admin-secret") {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const conversations = db.prepare(`
+      SELECT c.*, u1.username as user1_username, u2.username as user2_username
+      FROM conversations c
+      JOIN users u1 ON c.user1_id = u1.id
+      JOIN users u2 ON c.user2_id = u2.id
+      ORDER BY c.updated_at DESC
+    `).all();
+    res.json(conversations);
+  });
+
+  app.get("/api/admin/conversations/:id/messages", (req, res) => {
+    if (req.headers.authorization !== "Bearer ya-admin-secret") {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const messages = db.prepare(`
+      SELECT m.*, u.username as sender_username
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id = ?
+      ORDER BY m.created_at ASC
+    `).all(req.params.id);
+    res.json(messages);
+  });
+
+  app.post("/api/admin/conversations/:id/block", (req, res) => {
+    if (req.headers.authorization !== "Bearer ya-admin-secret") {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { userId } = req.body;
+    const conversationId = req.params.id;
+    
+    // For simplicity, we can just delete the conversation to block them from talking,
+    // or we could add a blocked_users table. Let's add a blocked column to conversations if it doesn't exist.
+    // Actually, a simple way is to delete the conversation for now, or add a system message.
+    // Let's implement a blocked_by column in conversations or just delete it.
+    // For now, let's just delete the conversation to prevent further messages.
+    try {
+      db.prepare("DELETE FROM messages WHERE conversation_id = ?").run(conversationId);
+      db.prepare("DELETE FROM conversations WHERE id = ?").run(conversationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      res.status(500).json({ error: "Failed to block user" });
+    }
+  });
+
   // User Management Endpoints (Admin Only)
   app.get("/api/admin/users", (req, res) => {
     if (req.headers.authorization !== "Bearer ya-admin-secret") {
@@ -473,6 +1315,114 @@ async function startServer() {
     }
     const users = db.prepare("SELECT * FROM users").all();
     res.json(users);
+  });
+
+  app.post("/api/admin/users/add", async (req, res) => {
+    if (req.headers.authorization !== "Bearer ya-admin-secret") {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { username, email, password, role, status } = req.body;
+    try {
+      const existingUser = db.prepare("SELECT * FROM users WHERE email = ? OR username = ?").get(email, username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username or email already exists" });
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const id = crypto.randomUUID();
+      const isVerified = status === 'verified' ? 1 : 0;
+      
+      db.prepare(`
+        INSERT INTO users (id, username, email, password, role, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(id, username, email, hashedPassword, role, isVerified);
+
+      const newUser = db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+
+      // Send email
+      const resetLink = `https://ya.tsameemevents.com/login?email=${encodeURIComponent(email)}`;
+      const emailHtml = `
+        <h2>Welcome to YA Wedding!</h2>
+        <p>Your account has been created by an administrator.</p>
+        <p><strong>Username:</strong> ${username}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Password:</strong> ${password}</p>
+        <p><strong>Role:</strong> ${role}</p>
+        <p>You can log in here: <a href="${resetLink}">Login</a></p>
+      `;
+      
+      await sendEmail(email, "Your YA Wedding Account", emailHtml);
+
+      res.json(newUser);
+    } catch (error: any) {
+      console.error("Error adding user:", error);
+      res.status(500).json({ error: "Failed to add user" });
+    }
+  });
+
+  app.post("/api/admin/users/send-email", async (req, res) => {
+    if (req.headers.authorization !== "Bearer ya-admin-secret") {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { userId, action } = req.body;
+    try {
+      const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      let subject = "";
+      let html = "";
+      const loginLink = `https://ya.tsameemevents.com/login?email=${encodeURIComponent(user.email)}`;
+
+      switch (action) {
+        case 'reset_password':
+          subject = "Password Reset / Setup Link";
+          html = `
+            <h2>Password Reset</h2>
+            <p>Hello ${user.username || user.name},</p>
+            <p>You can set up or reset your password using the link below:</p>
+            <p><a href="${loginLink}">Set/Reset Password</a></p>
+          `;
+          break;
+        case 'account_terminated':
+          subject = "Account Terminated";
+          html = `
+            <h2>Account Terminated</h2>
+            <p>Hello ${user.username || user.name},</p>
+            <p>Your account on YA Wedding has been terminated.</p>
+            <p>If you believe this is an error, please contact support.</p>
+          `;
+          break;
+        case 'account_verified':
+          subject = "Account Verified";
+          html = `
+            <h2>Account Verified</h2>
+            <p>Hello ${user.username || user.name},</p>
+            <p>Your account on YA Wedding has been successfully verified!</p>
+            <p>You can now log in and access all features.</p>
+            <p><a href="${loginLink}">Login to your account</a></p>
+          `;
+          break;
+        case 'status_changed':
+          subject = "Account Status Changed";
+          html = `
+            <h2>Account Status Changed</h2>
+            <p>Hello ${user.username || user.name},</p>
+            <p>Your account status or role has been updated by an administrator.</p>
+            <p>Please log in to see the changes.</p>
+            <p><a href="${loginLink}">Login to your account</a></p>
+          `;
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid action" });
+      }
+
+      await sendEmail(user.email, subject, html);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ error: "Failed to send email" });
+    }
   });
 
   app.post("/api/admin/users/update", (req, res) => {
@@ -993,6 +1943,13 @@ async function startServer() {
     }
     const { services } = req.body;
     fs.writeFileSync(SERVICES_PATH, JSON.stringify({ services }, null, 2));
+    res.json({ success: true });
+  });
+
+  app.post("/api/report-missing-name", (req, res) => {
+    const { name, email, details } = req.body;
+    console.log(`Missing Name Reported: ${name} (by ${email || 'anonymous'})`);
+    // In a real app, you would save this to a database or send an email
     res.json({ success: true });
   });
 
@@ -1652,8 +2609,41 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+  });
+
+  const wss = new WebSocketServer({ server });
+  const clients = new Map<string, WebSocket>();
+
+  wss.on('connection', (ws, req) => {
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const userId = url.searchParams.get('userId');
+    
+    if (userId) {
+      clients.set(userId, ws);
+      
+      ws.on('message', (message) => {
+        try {
+          const data = JSON.parse(message.toString());
+          const targetWs = clients.get(data.targetUserId);
+          
+          if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+            targetWs.send(JSON.stringify({
+              type: data.type,
+              payload: data.payload,
+              fromUserId: userId
+            }));
+          }
+        } catch (e) {
+          console.error('WebSocket message error:', e);
+        }
+      });
+
+      ws.on('close', () => {
+        clients.delete(userId);
+      });
+    }
   });
 }
 

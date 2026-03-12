@@ -39,8 +39,26 @@
 }
 
 @layer base {
+  :root {
+    --titlebar-area-height: 0px;
+  }
+
+  @media (display-mode: window-controls-overlay) {
+    :root {
+      --titlebar-area-height: 33px;
+    }
+  }
+
   body {
     @apply bg-dark text-white font-sans antialiased;
+    padding-top: env(titlebar-area-height, var(--titlebar-area-height));
+  }
+}
+
+/* Standalone mode refinements */
+@media (display-mode: standalone) {
+  .fixed-top-nav {
+    top: env(titlebar-area-height, var(--titlebar-area-height));
   }
 }
 

@@ -1,0 +1,99 @@
+{
+  "name": "YA Wedding - Luxury Wedding Planner Dubai",
+  "short_name": "YA Wedding",
+  "description": "Dubai's premier luxury wedding planner specializing in traditional Emarati, Indian, and Western weddings.",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["tabbed", "window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#050505",
+  "theme_color": "#00C896",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Inbox",
+      "short_name": "Inbox",
+      "description": "View your messages",
+      "url": "/inbox",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Go to your dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/inbox",
+      "accept": {
+        "image/*": [".jpg", ".jpeg", ".png", ".gif"],
+        "application/pdf": [".pdf"]
+      }
+    }
+  ],
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+yawedding",
+      "url": "/inbox?url=%s"
+    }
+  ],
+  "share_target": {
+    "action": "/inbox",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "media",
+          "accept": ["image/*", "video/*", "application/pdf"]
+        }
+      ]
+    }
+  },
+  "widgets": [
+    {
+      "name": "Unread Messages",
+      "description": "See your unread messages at a glance",
+      "tag": "unread-messages",
+      "template": "unread-messages-template",
+      "ms_ac_template": "unread-messages-ac-template",
+      "data": "unread-messages-data",
+      "type": "application/json",
+      "screenshots": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "512x512",
+          "type": "image/svg+xml",
+          "label": "Unread Messages Widget"
+        }
+      ]
+    }
+  ],
+  "note_taking": {
+    "new_note_url": "/inbox?action=new-note"
+  },
+  "edge_side_panel": {
+    "default_width": 400
+  }
+}

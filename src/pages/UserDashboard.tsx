@@ -523,7 +523,7 @@ export const UserDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem('ya-token');
     localStorage.removeItem('ya-user');
-    navigate('/login');
+    navigate('/');
   };
 
   if (!user || !token) return null;

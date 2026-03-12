@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Smartphone, Sparkles, Share, PlusSquare } from 'lucide-react';
+import { Download, X, Smartphone, Sparkles, Share, PlusSquare, RefreshCw } from 'lucide-react';
 
 export const PWAInstallPopup = () => {
   const [show, setShow] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstructions, setShowInstructions] = useState(false);
+
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -15,18 +19,44 @@ export const PWAInstallPopup = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Show popup after 10 seconds to encourage installation
-    // User requested to not rely on browser checks
-    const timer = setTimeout(() => {
-      // Check if user is logged in
-      const user = localStorage.getItem('ya-user');
-      if (user) return; // Do not show if logged in
-
-      // Check if already installed
+    // Check if already installed
+    const checkInstalled = () => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-      if (isStandalone) return; // Do not show if already installed
+      setIsInstalled(isStandalone);
+    };
+    checkInstalled();
 
-      // Only show if they haven't dismissed it recently (e.g., 30 days)
+    // Check for updates
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg) {
+          setRegistration(reg);
+          if (reg.waiting) {
+            setUpdateAvailable(true);
+            setShow(true); // Show popup if update is waiting
+          }
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  setUpdateAvailable(true);
+                  setShow(true);
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Show popup after 10 seconds to encourage installation if not installed
+    const timer = setTimeout(() => {
+      const user = localStorage.getItem('ya-user');
+      if (user) return; 
+
+      if (isInstalled && !updateAvailable) return;
+
       const lastDismissed = localStorage.getItem('pwa-popup-dismissed');
       if (!lastDismissed || Date.now() - parseInt(lastDismissed) > 30 * 24 * 60 * 60 * 1000) {
         setShow(true);
@@ -60,6 +90,19 @@ export const PWAInstallPopup = () => {
       // Show manual instructions instead of alert
       setShowInstructions(true);
     }
+  };
+
+  const handleUpdate = () => {
+    if (registration && registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+  };
+
+  const handleOpenApp = () => {
+    // Standalone mode is already open, but if in browser, we can't easily "open" the standalone app
+    // except by redirecting to a specific URL that might trigger it, or just showing instructions.
+    // Most browsers don't support a JS API to "open" the installed PWA from the browser.
+    window.location.href = '/';
   };
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -96,23 +139,49 @@ export const PWAInstallPopup = () => {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Sparkles size={14} className="text-brand" />
-                      <span className="text-brand text-[10px] font-bold uppercase tracking-widest">Mobile Experience</span>
+                      <span className="text-brand text-[10px] font-bold uppercase tracking-widest">
+                        {updateAvailable ? 'Update Available' : isInstalled ? 'App Installed' : 'Mobile Experience'}
+                      </span>
                     </div>
-                    <h3 className="text-lg font-bold text-white">Install YA Wedding</h3>
+                    <h3 className="text-lg font-bold text-white">
+                      {updateAvailable ? 'New Version Ready' : isInstalled ? 'YA Wedding App' : 'Install YA Wedding'}
+                    </h3>
                     <p className="text-sm text-gray-400 leading-relaxed">
-                      Get the best experience with our mobile app. Fast, offline-ready, and secure.
+                      {updateAvailable 
+                        ? 'A new version of the app is ready. Update now for the latest features.' 
+                        : isInstalled 
+                          ? 'You have the app installed. Open it for the best experience.' 
+                          : 'Get the best experience with our mobile app. Fast, offline-ready, and secure.'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-3">
-                  <button
-                    onClick={handleInstall}
-                    className="flex-grow bg-brand text-dark font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
-                  >
-                    <Download size={18} />
-                    Install App
-                  </button>
+                  {updateAvailable ? (
+                    <button
+                      onClick={handleUpdate}
+                      className="flex-grow bg-brand text-dark font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+                    >
+                      <RefreshCw size={18} className="animate-spin-slow" />
+                      Update Now
+                    </button>
+                  ) : isInstalled ? (
+                    <button
+                      onClick={handleOpenApp}
+                      className="flex-grow bg-brand text-dark font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+                    >
+                      <Smartphone size={18} />
+                      Open App
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleInstall}
+                      className="flex-grow bg-brand text-dark font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+                    >
+                      <Download size={18} />
+                      Install App
+                    </button>
+                  )}
                   <button
                     onClick={() => setShow(false)}
                     className="px-6 py-3 rounded-xl border border-white/10 text-gray-400 font-medium hover:bg-white/5 transition-colors"

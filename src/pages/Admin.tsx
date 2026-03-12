@@ -45,7 +45,10 @@ import {
   Eye,
   EyeOff,
   MousePointer2,
-  Database
+  Database,
+  Bell,
+  Phone,
+  MessageSquare
 } from 'lucide-react';
 import { Service, Blog, PackageStep, Promo, SiteSettings, MediaItem, BookingForm, BookingFormStep, BookingFormField, PDFConfig, Rating } from '../types';
 
@@ -54,6 +57,7 @@ import { ThemeBuilderTab } from './admin/theme-builder/ThemeBuilderTab';
 import { CustomPostTypesTab } from './admin/CustomPostTypesTab';
 import { RedirectionsTab } from './admin/RedirectionsTab';
 import { EmailTemplatesTab } from './admin/EmailTemplatesTab';
+import { AdminConversationsTab } from './admin/AdminConversationsTab';
 import { VisualEditor } from '../components/VisualEditor';
 
 import { ImageUpload } from '../components/ImageUpload';
@@ -67,7 +71,7 @@ export const Admin = () => {
   React.useEffect(() => {
     const token = localStorage.getItem('ya-token');
     const user = JSON.parse(localStorage.getItem('ya-user') || '{}');
-    if (token === 'ya-admin-secret' && user.role === 'admin') {
+    if (token && user.role === 'admin') {
       setIsLoggedIn(true);
     } else if (token) {
       navigate('/dashboard');
@@ -84,7 +88,7 @@ export const Admin = () => {
     }
   }, [navigate]);
 
-  const [tab, setTab] = React.useState<'services' | 'blogs' | 'settings' | 'package' | 'promos' | 'pages' | 'general' | 'media' | 'booking' | 'partnerships' | 'development' | 'reviews' | 'container-widget' | 'theme-builder' | 'custom-post-types' | 'redirections' | 'user-manager' | 'security-settings' | 'email-templates'>('services');
+  const [tab, setTab] = React.useState<'services' | 'blogs' | 'settings' | 'package' | 'promos' | 'pages' | 'general' | 'media' | 'booking' | 'partnerships' | 'development' | 'reviews' | 'container-widget' | 'theme-builder' | 'custom-post-types' | 'redirections' | 'user-manager' | 'security-settings' | 'email-templates' | 'call-monitoring' | 'conversations'>('services');
   const [services, setServices] = React.useState<Service[]>([]);
   const [blogs, setBlogs] = React.useState<Blog[]>([]);
   const [packageSteps, setPackageSteps] = React.useState<PackageStep[]>([]);
@@ -92,6 +96,14 @@ export const Admin = () => {
   const [pages, setPages] = React.useState<any[]>([]);
   const [ratings, setRatings] = React.useState<Rating[]>([]);
   const [users, setUsers] = React.useState<any[]>([]);
+  const [filteredUsers, setFilteredUsers] = React.useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [roleFilter, setRoleFilter] = React.useState('all');
+  const [verifyFilter, setVerifyFilter] = React.useState('all');
+  const [notificationForm, setNotificationForm] = React.useState({ title: '', body: '', targetRole: 'all' });
+  const [sendingNotification, setSendingNotification] = React.useState(false);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = React.useState(false);
+  const [newUserForm, setNewUserForm] = React.useState({ username: '', email: '', password: '', role: 'customer', status: 'verified' });
   const [securityConfig, setSecurityConfig] = React.useState<any>(null);
   const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [settings, setSettings] = React.useState<any>(null);
@@ -116,7 +128,7 @@ export const Admin = () => {
     localStorage.removeItem('ya-token');
     localStorage.removeItem('ya-user');
     setIsLoggedIn(false);
-    navigate('/login');
+    navigate('/');
   };
 
   const fetchData = async () => {
@@ -175,12 +187,84 @@ export const Admin = () => {
     });
     const usersData = await usersRes.json();
     setUsers(usersData);
+    setFilteredUsers(usersData);
 
     const secRes = await fetch('/api/admin/security/full-config', {
       headers: { 'Authorization': 'Bearer ya-admin-secret' }
     });
     const secData = await secRes.json();
     setSecurityConfig(secData);
+  };
+
+  React.useEffect(() => {
+    let result = users;
+    if (searchQuery) {
+      result = result.filter(u => 
+        (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (u.username && u.username.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+    if (roleFilter !== 'all') {
+      result = result.filter(u => u.role === roleFilter);
+    }
+    if (verifyFilter !== 'all') {
+      const isVerified = verifyFilter === 'verified';
+      result = result.filter(u => !!u.is_verified === isVerified);
+    }
+    setFilteredUsers(result);
+  }, [searchQuery, roleFilter, verifyFilter, users]);
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserForm.username || !newUserForm.email || !newUserForm.password) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    const res = await fetch('/api/admin/users/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ya-admin-secret'
+      },
+      body: JSON.stringify(newUserForm)
+    });
+    if (res.ok) {
+      const addedUser = await res.json();
+      setUsers([...users, addedUser]);
+      setIsAddUserModalOpen(false);
+      setNewUserForm({ username: '', email: '', password: '', role: 'customer', status: 'verified' });
+      alert("User added successfully and email sent.");
+    } else {
+      const err = await res.json();
+      alert("Error adding user: " + err.error);
+    }
+  };
+
+  const handleSendCustomNotification = async () => {
+    if (!notificationForm.title || !notificationForm.body) {
+      alert("Please fill in all fields");
+      return;
+    }
+    setSendingNotification(true);
+    try {
+      const res = await fetch('/api/admin/send-notification', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ya-admin-secret'
+        },
+        body: JSON.stringify(notificationForm)
+      });
+      if (res.ok) {
+        alert("Notification sent successfully!");
+        setNotificationForm({ title: '', body: '', targetRole: 'all' });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSendingNotification(false);
+    }
   };
 
   const handleUpdateUser = async (userId: string, updates: any) => {
@@ -209,6 +293,23 @@ export const Admin = () => {
     });
     if (res.ok) {
       setUsers(users.filter(u => u.id !== userId));
+    }
+  };
+
+  const handleSendEmailAction = async (userId: string, action: string) => {
+    const res = await fetch('/api/admin/users/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ya-admin-secret'
+      },
+      body: JSON.stringify({ userId, action })
+    });
+    if (res.ok) {
+      alert("Email sent successfully.");
+    } else {
+      const err = await res.json();
+      alert("Error sending email: " + err.error);
     }
   };
 
@@ -534,6 +635,8 @@ export const Admin = () => {
               { id: 'custom-post-types', label: 'Custom Post Types', icon: Database },
               { id: 'redirections', label: 'Redirections', icon: RefreshCw },
               { id: 'user-manager', label: 'User Manager', icon: Users },
+              { id: 'call-monitoring', label: 'Call Monitoring', icon: Video },
+              { id: 'conversations', label: 'Conversations', icon: MessageSquare },
               { id: 'email-templates', label: 'Email Templates', icon: Mail },
               { id: 'security-settings', label: 'Security Settings', icon: Shield },
               { id: 'development', label: 'Development', icon: Terminal },
@@ -3543,79 +3646,337 @@ export const Admin = () => {
                 <h2 className="text-2xl font-bold">User Management</h2>
                 <p className="text-gray-400 text-sm">Manage platform users, roles, and access</p>
               </div>
+              <button 
+                onClick={() => setIsAddUserModalOpen(true)} 
+                className="bg-brand text-dark px-6 py-3 rounded-xl font-bold hover:bg-white transition-colors flex items-center gap-2"
+              >
+                <Plus size={20} />
+                Add User
+              </button>
             </div>
 
-            <div className="glass-card rounded-3xl overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-white/5 border-b border-white/10">
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">User</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Role</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Joined</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-white/5 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-brand/10 rounded-full flex items-center justify-center text-brand font-bold">
-                            {user.name[0]}
+            {isAddUserModalOpen && (
+              <div className="fixed inset-0 bg-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-dark-lighter border border-white/10 rounded-3xl p-8 max-w-md w-full">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-2xl font-bold text-white">Add New User</h3>
+                    <button onClick={() => setIsAddUserModalOpen(false)} className="text-gray-400 hover:text-white">
+                      <X size={24} />
+                    </button>
+                  </div>
+                  <form onSubmit={handleAddUser} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-400 mb-1">Username</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newUserForm.username}
+                        onChange={e => setNewUserForm({...newUserForm, username: e.target.value})}
+                        className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-400 mb-1">Email</label>
+                      <input 
+                        type="email" 
+                        required
+                        value={newUserForm.email}
+                        onChange={e => setNewUserForm({...newUserForm, email: e.target.value})}
+                        className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-400 mb-1">Password</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={newUserForm.password}
+                        onChange={e => setNewUserForm({...newUserForm, password: e.target.value})}
+                        className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-400 mb-1">Role</label>
+                        <select 
+                          value={newUserForm.role}
+                          onChange={e => setNewUserForm({...newUserForm, role: e.target.value})}
+                          className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand"
+                        >
+                          <option value="customer">Customer</option>
+                          <option value="partner">Partner</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-400 mb-1">Status</label>
+                        <select 
+                          value={newUserForm.status}
+                          onChange={e => setNewUserForm({...newUserForm, status: e.target.value})}
+                          className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand"
+                        >
+                          <option value="verified">Verified</option>
+                          <option value="unverified">Unverified</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button type="submit" className="w-full bg-brand text-dark py-3 rounded-xl font-bold hover:bg-white transition-colors mt-6">
+                      Create User & Send Email
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Search by name or email..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 outline-none focus:border-brand transition-all"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <select 
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand text-gray-300"
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="partner">Partner</option>
+                    <option value="customer">Customer</option>
+                  </select>
+                  <select 
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand text-gray-300"
+                    value={verifyFilter}
+                    onChange={(e) => setVerifyFilter(e.target.value)}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="verified">Verified</option>
+                    <option value="unverified">Unverified</option>
+                  </select>
+                </div>
+
+                <div className="glass-card rounded-3xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-white/5 border-b border-white/10">
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">User</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Role</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Verification</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Joined</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-white/5 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-brand/10 rounded-full flex items-center justify-center text-brand font-bold">
+                                {user.name ? user.name[0] : (user.username ? user.username[0] : '?')}
+                              </div>
+                              <div>
+                                <div className="font-bold text-white">{user.name || user.username}</div>
+                                <div className="text-xs text-gray-500">{user.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <select 
+                              value={user.role}
+                              onChange={(e) => handleUpdateUser(user.id, { role: e.target.value })}
+                              className="bg-dark border border-white/10 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-brand"
+                            >
+                              <option value="customer">Customer</option>
+                              <option value="admin">Admin</option>
+                              <option value="partner">Partner</option>
+                            </select>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleUpdateUser(user.id, { is_verified: user.is_verified ? 0 : 1 })}
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                user.is_verified ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                              }`}
+                            >
+                              {user.is_verified ? 'Verified' : 'Unverified'}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-400">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="relative group/dropdown">
+                                <button className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all" title="Send Email">
+                                  <Mail size={16} />
+                                </button>
+                                <div className="absolute right-0 mt-2 w-48 bg-dark border border-white/10 rounded-xl shadow-xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all z-50">
+                                  <div className="p-2 space-y-1">
+                                    <button onClick={() => handleSendEmailAction(user.id, 'reset_password')} className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-white/5 rounded-lg">Reset Password Link</button>
+                                    <button onClick={() => handleSendEmailAction(user.id, 'account_terminated')} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg">Account Terminated</button>
+                                    <button onClick={() => handleSendEmailAction(user.id, 'account_verified')} className="w-full text-left px-3 py-2 text-xs text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-lg">Account Verified</button>
+                                    <button onClick={() => handleSendEmailAction(user.id, 'status_changed')} className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-white/5 rounded-lg">Status Changed</button>
+                                  </div>
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="p-2 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-all"
+                                title="Delete User"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="glass-card p-6 rounded-3xl space-y-6">
+                  <h3 className="text-lg font-bold text-brand flex items-center gap-2">
+                    <Bell size={20} /> Send Custom Notification
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase">Target Audience</label>
+                      <select 
+                        value={notificationForm.targetRole}
+                        onChange={(e) => setNotificationForm({...notificationForm, targetRole: e.target.value})}
+                        className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand text-gray-300"
+                      >
+                        <option value="all">All Users</option>
+                        <option value="admin">Admins Only</option>
+                        <option value="partner">Partners Only</option>
+                        <option value="customer">Customers Only</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase">Title</label>
+                      <input
+                        type="text"
+                        value={notificationForm.title}
+                        onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
+                        placeholder="Notification Title"
+                        className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase">Message</label>
+                      <textarea
+                        value={notificationForm.body}
+                        onChange={(e) => setNotificationForm({...notificationForm, body: e.target.value})}
+                        placeholder="Type your message here..."
+                        rows={4}
+                        className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand resize-none"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSendCustomNotification}
+                      disabled={sendingNotification}
+                      className="w-full bg-brand text-dark py-3 rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                    >
+                      {sendingNotification ? 'Sending...' : 'Send Push Notification'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'call-monitoring' && (
+          <div className="space-y-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold">Call Monitoring</h2>
+                <p className="text-gray-400 text-sm">Monitor and manage active voice and video calls</p>
+              </div>
+            </div>
+
+            <div className="bg-dark border border-white/10 rounded-2xl overflow-hidden">
+              <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                <h3 className="font-bold">Active Calls</h3>
+                <button 
+                  onClick={() => {
+                    fetch('/api/admin/calls/active')
+                      .then(res => res.json())
+                      .then(data => setSettings({...settings, activeCalls: data}))
+                      .catch(console.error);
+                  }}
+                  className="p-2 text-gray-400 hover:text-brand transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw size={20} />
+                </button>
+              </div>
+              <div className="p-6">
+                {(!settings?.activeCalls || settings.activeCalls.length === 0) ? (
+                  <div className="text-center text-gray-400 py-8">
+                    No active calls at the moment.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {settings.activeCalls.map((call: any) => (
+                      <div key={call.id} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${call.type === 'video' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                            {call.type === 'video' ? <Video size={20} /> : <Phone size={20} />}
                           </div>
                           <div>
-                            <div className="font-bold text-white">{user.name}</div>
-                            <div className="text-xs text-gray-500">{user.email}</div>
+                            <div className="font-bold">
+                              {call.caller_name || call.caller_username} <span className="text-gray-500 font-normal">({call.caller_role})</span>
+                              <span className="mx-2 text-gray-500">↔</span>
+                              {call.receiver_name || call.receiver_username} <span className="text-gray-500 font-normal">({call.receiver_role})</span>
+                            </div>
+                            <div className="text-sm text-gray-400 mt-1 flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${call.status === 'connected' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                              <span className="capitalize">{call.status}</span>
+                              <span>•</span>
+                              <span>Started: {new Date(call.started_at).toLocaleTimeString()}</span>
+                            </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <select 
-                          value={user.role}
-                          onChange={(e) => handleUpdateUser(user.id, { role: e.target.value })}
-                          className="bg-dark border border-white/10 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-brand"
-                        >
-                          <option value="user">User</option>
-                          <option value="admin">Admin</option>
-                          <option value="partner">Partner</option>
-                        </select>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                          user.subscriptionStatus === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'
-                        }`}>
-                          {user.subscriptionStatus}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => {
-                              const newEmail = prompt('Enter new email:', user.email);
-                              if (newEmail) handleUpdateUser(user.id, { email: newEmail });
-                            }}
-                            className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all"
-                            title="Edit Email"
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => alert('Call monitoring (spy mode) coming soon!')}
+                            className="p-2 text-gray-400 hover:text-brand transition-colors"
+                            title="Monitor Call"
                           >
-                            <Mail size={16} />
+                            <Eye size={20} />
                           </button>
-                          <button 
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="p-2 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-all"
-                            title="Delete User"
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to terminate this call?')) {
+                                fetch(`/api/admin/calls/${call.id}`, { method: 'DELETE' })
+                                  .then(() => {
+                                    setSettings({...settings, activeCalls: settings.activeCalls.filter((c: any) => c.id !== call.id)});
+                                  })
+                                  .catch(console.error);
+                              }
+                            }}
+                            className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                            title="Terminate Call"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={20} />
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -3760,6 +4121,10 @@ export const Admin = () => {
 
         {tab === 'email-templates' && (
           <EmailTemplatesTab />
+        )}
+
+        {tab === 'conversations' && (
+          <AdminConversationsTab />
         )}
 
         {/* Modal for Dynamic Page Builder */}

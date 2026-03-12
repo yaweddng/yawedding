@@ -16,12 +16,15 @@ import { Discounts } from './pages/Discounts';
 import Partnerships from './pages/Partnerships';
 import { Login } from './pages/Login';
 import { UserDashboard } from './pages/UserDashboard';
+import { CustomerProfile } from './pages/CustomerProfile';
 import { MobileApp } from './pages/MobileApp';
+import { ReportMissingName } from './pages/ReportMissingName';
 import { AdminSecurityCheck } from './pages/AdminSecurityCheck';
 import { Inbox } from './pages/Inbox';
 import ScrollToTop from './components/ScrollToTop';
 import { HelpTab } from './components/HelpTab';
 import { PWAInstallPopup } from './components/PWAInstallPopup';
+import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
 
 import { Packages } from './pages/Packages';
 import { DynamicPage } from './pages/DynamicPage';
@@ -119,7 +122,63 @@ export default function App() {
     } else {
       setSiteLoading(false);
     }
+
+    // Service Worker and Push Notifications
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(async (registration) => {
+        console.log('Service Worker registered');
+        
+        // Handle Periodic Sync
+        if ('periodicSync' in registration) {
+          try {
+            await (registration as any).periodicSync.register('check-notifications', {
+              minInterval: 24 * 60 * 60 * 1000, // 24 hours
+            });
+          } catch (e) {
+            console.log('Periodic sync could not be registered:', e);
+          }
+        }
+
+        // Handle Push Subscription
+        const userStr = localStorage.getItem('ya-user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        if (user) {
+          try {
+            const res = await fetch('/api/push/key');
+            const { publicKey } = await res.json();
+            
+            const subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicKey)
+            });
+            
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.id, subscription })
+            });
+          } catch (e) {
+            console.error('Push subscription failed:', e);
+          }
+        }
+      });
+    }
   }, []);
+
+  function urlBase64ToUint8Array(base64String: string) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
 
   if (siteLoading) return <div className="min-h-screen bg-dark flex items-center justify-center text-brand font-bold">Initializing Platform...</div>;
 
@@ -168,7 +227,14 @@ export default function App() {
                   <Route path={adminSlug} element={<AdminSecurityCheck />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/mobile-app" element={<MobileApp />} />
+                  <Route path="/report-missing-name" element={
+                    <>
+                      <SEO title="Report Missing Name" description="Submit a name that is missing from our records." />
+                      <ReportMissingName />
+                    </>
+                  } />
                   <Route path="/dashboard" element={<UserDashboard />} />
+                  <Route path="/profile" element={<CustomerProfile />} />
                   <Route path="/inbox" element={<Inbox />} />
                   <Route path="/u/:username" element={<DynamicPageWrapper isUserSite />} />
                   <Route path="/u/:username/:slug" element={<DynamicPageWrapper isUserSite />} />
@@ -182,6 +248,7 @@ export default function App() {
           <Footer />
           <HelpTab />
           <PWAInstallPopup />
+          <PWAUpdatePrompt />
         </div>
       </Router>
     </HelmetProvider>

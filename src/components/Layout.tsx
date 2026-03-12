@@ -23,10 +23,14 @@ import {
   BookOpen, 
   Smartphone,
   Apple,
+  Inbox,
+  LogOut,
+  LogIn,
   Image as ImageIcon 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SiteSettings } from '../types';
+import { LoginModal } from './LoginModal';
 
 import { useCMSData } from '../hooks/useCMSData';
 
@@ -39,6 +43,7 @@ const IconRenderer = ({ name, size = 18, className = "" }: { name: string, size?
 export const Header = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = React.useState(false);
   const [activeDropdown, setActiveDropdown] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [unreadCount, setUnreadCount] = React.useState(0);
@@ -83,6 +88,12 @@ export const Header = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('ya-token');
+    localStorage.removeItem('ya-user');
+    window.location.href = '/';
+  };
+
   if (!settings) {
     return (
       <header className="fixed top-0 left-0 right-0 z-50 bg-dark/80 backdrop-blur-lg border-bottom border-white/5">
@@ -96,7 +107,8 @@ export const Header = () => {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-dark/80 backdrop-blur-lg border-bottom border-white/5">
+    <>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-dark/80 backdrop-blur-lg border-bottom border-white/5">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           <Link to="/" className="flex items-center space-x-2">
@@ -125,7 +137,7 @@ export const Header = () => {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-6">
-            {settings.header.menu.map((link) => (
+            {settings.header?.menu?.map((link: any) => (
               <div 
                 key={link.id}
                 className="relative group"
@@ -187,21 +199,38 @@ export const Header = () => {
               >
                 <Search size={20} />
               </button>
-              {user && (
-                <Link 
-                  to="/inbox"
-                  className="relative text-gray-400 hover:text-brand transition-colors"
-                  title="Inbox"
+              
+              <button 
+                onClick={() => user ? navigate('/inbox') : setIsLoginModalOpen(true)}
+                className="relative text-gray-400 hover:text-brand transition-colors"
+                title="Inbox"
+              >
+                <Inbox size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {user ? (
+                <button
+                  onClick={handleLogout}
+                  className="text-gray-400 hover:text-red-400 transition-colors"
+                  title="Logout"
                 >
-                  <MessageSquare size={20} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </Link>
+                  <LogOut size={20} className="scale-x-[-1] text-red-500" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="text-gray-400 hover:text-brand transition-colors"
+                  title="Login"
+                >
+                  <LogIn size={20} />
+                </button>
               )}
-              {settings.header.ctas.map((cta, idx) => (
+              {settings.header?.ctas?.map((cta: any, idx: number) => (
                 <Link
                   key={idx}
                   to={cta.url}
@@ -226,19 +255,19 @@ export const Header = () => {
             >
               <Search size={20} />
             </button>
-            {user && (
-              <Link 
-                to="/inbox"
-                className="relative text-gray-400 hover:text-brand transition-colors"
-              >
-                <MessageSquare size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </Link>
-            )}
+            
+            <button 
+              onClick={() => user ? navigate('/inbox') : setIsLoginModalOpen(true)}
+              className="relative text-gray-400 hover:text-brand transition-colors"
+            >
+              <Inbox size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+
             <button className="text-white" onClick={() => setIsOpen(!isOpen)}>
               {isOpen ? <X /> : <Menu />}
             </button>
@@ -282,7 +311,7 @@ export const Header = () => {
             className="md:hidden bg-dark-lighter border-t border-white/5 overflow-hidden"
           >
             <div className="px-4 py-6 space-y-2">
-              {settings.header.menu.filter(link => !link.hideOnMobile).map((link) => (
+              {settings.header?.menu?.filter((link: any) => !link.hideOnMobile).map((link: any) => (
                 <div key={link.id} className="space-y-1">
                   <div className="flex items-center justify-between">
                     <Link
@@ -337,6 +366,26 @@ export const Header = () => {
                 </div>
               ))}
               <div className="pt-4 space-y-3">
+                {user ? (
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-red-500 border border-red-500/20 hover:bg-red-500/5 transition-all"
+                  >
+                    <LogOut size={20} className="scale-x-[-1]" />
+                    Logout
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      setIsLoginModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-brand border border-brand/20 hover:bg-brand/5 transition-all"
+                  >
+                    <LogIn size={20} />
+                    Login
+                  </button>
+                )}
                 {settings.header.ctas.map((cta, idx) => (
                   <Link
                     key={idx}
@@ -349,7 +398,7 @@ export const Header = () => {
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      {settings.header.mobileMenu.ctaIcon && idx === 0 && <IconRenderer name={settings.header.mobileMenu.ctaIcon} size={20} />}
+                      {settings.header?.mobileMenu?.ctaIcon && idx === 0 && <IconRenderer name={settings.header?.mobileMenu?.ctaIcon} size={20} />}
                       {cta.label}
                     </div>
                   </Link>
@@ -360,6 +409,9 @@ export const Header = () => {
         )}
       </AnimatePresence>
     </header>
+
+    <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+    </>
   );
 };
 
@@ -381,10 +433,10 @@ export const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-12">
         <div className="space-y-6 lg:col-span-2">
           <Link to="/" className="flex items-center gap-3">
-            {settings.footer.logoType === 'image' ? (
+            {settings.footer?.logoType === 'image' ? (
               <div className="h-12 w-12 rounded-2xl overflow-hidden border border-white/10">
                 <img 
-                  src={settings.footer.logo || settings.siteLogo} 
+                  src={settings.footer?.logo || settings.siteLogo} 
                   alt={settings.siteName} 
                   className="h-full w-full object-cover" 
                   referrerPolicy="no-referrer" 
@@ -402,10 +454,10 @@ export const Footer = () => {
             )}
           </Link>
           <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
-            {settings.footer.description}
+            {settings.footer?.description}
           </p>
           <div className="flex space-x-4">
-            {settings.footer.socialLinks.map((social, idx) => (
+            {settings.footer?.socialLinks?.map((social: any, idx: number) => (
               <a 
                 key={idx} 
                 href={social.url} 
@@ -440,11 +492,11 @@ export const Footer = () => {
           </div>
         </div>
 
-        {settings.footer.navigation.map((section, idx) => (
+        {settings.footer?.navigation?.map((section: any, idx: number) => (
           <div key={idx}>
             <h4 className="text-white font-bold mb-6">{section.title}</h4>
             <ul className="space-y-4 text-sm text-gray-400">
-              {section.items.map((item, iIdx) => (
+              {section.items?.map((item: any, iIdx: number) => (
                 <li key={iIdx}>
                   <Link to={item.url} className="hover:text-brand transition-colors">{item.label}</Link>
                 </li>
@@ -453,11 +505,11 @@ export const Footer = () => {
           </div>
         ))}
 
-        {settings.footer.showContact !== false && (
+        {settings.footer?.showContact !== false && settings.footer?.contactInfo && (
           <div>
             <h4 className="text-white font-bold mb-6">{settings.footer.contactInfo.title}</h4>
             <ul className="space-y-4 text-sm text-gray-400">
-              {settings.footer.contactInfo.items.map((item, idx) => (
+              {settings.footer.contactInfo.items?.map((item: any, idx: number) => (
                 <li key={idx} className="flex items-start space-x-3">
                   <IconRenderer name={item.icon} size={18} className="text-brand shrink-0" />
                   <div className="flex flex-col">
@@ -470,11 +522,11 @@ export const Footer = () => {
           </div>
         )}
 
-        {settings.footer.showHours !== false && (
+        {settings.footer?.showHours !== false && settings.footer?.moreInfo && (
           <div>
             <h4 className="text-white font-bold mb-6">{settings.footer.moreInfo.title}</h4>
             <ul className="space-y-4 text-sm text-gray-400">
-              {settings.footer.moreInfo.items.map((item, idx) => (
+              {settings.footer.moreInfo.items?.map((item: any, idx: number) => (
                 <li key={idx} className="flex items-start space-x-3">
                   <IconRenderer name={item.icon} size={18} className="text-brand shrink-0" />
                   <div className="flex flex-col">
@@ -490,17 +542,17 @@ export const Footer = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
         <p className="text-gray-500 text-xs">
-          {settings.footer.copyrightText}
+          {settings.footer?.copyrightText}
         </p>
-        {settings.footer.showSEOTags !== false && (
+        {settings.footer?.showSEOTags !== false && settings.footer?.seoTags && (
           <div className="flex flex-wrap justify-center gap-4">
-            {settings.footer.seoTags.map((tag, idx) => (
+            {settings.footer.seoTags.map((tag: any, idx: number) => (
               <span key={idx} className="text-[10px] text-gray-600 uppercase tracking-widest">{tag}</span>
             ))}
           </div>
         )}
         <div className="flex flex-wrap justify-center gap-4">
-          {settings.footer.showCTA !== false && settings.footer.ctas?.filter((cta: any) => cta.show).map((cta: any, idx: number) => (
+          {settings.footer?.showCTA !== false && settings.footer?.ctas?.filter((cta: any) => cta.show).map((cta: any, idx: number) => (
             <Link 
               key={idx}
               to={cta.url} 
@@ -514,7 +566,7 @@ export const Footer = () => {
       </div>
 
       {/* Floating Action Buttons */}
-      {settings.floatingItems?.actionButtons?.show && (
+      {settings.floatingItems?.actionButtons?.show && settings.floatingItems?.actionButtons?.items && (
         <div className={`fixed bottom-8 ${settings.floatingItems.actionButtons.position === 'left' ? 'left-8' : 'right-8'} flex flex-col space-y-4 z-40`}>
           {settings.floatingItems.actionButtons.items.filter((btn: any) => btn.show).map((btn: any, idx: number) => (
             <a
