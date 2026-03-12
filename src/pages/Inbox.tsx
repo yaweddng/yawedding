@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playSound, stopSound } from '../utils/soundManager';
+import { checkForUpdates } from '../utils/pwa';
 import { Send, User, Clock, Check, CheckCheck, MessageSquare, ArrowLeft, Search, Plus, Package, LayoutDashboard, UserCircle, Video, Phone, Paperclip, Trash2, File as FileIcon, Download, X, Mic, MicOff, VideoOff, Volume2, PhoneOff, PhoneCall, Shield, Minimize2, Maximize2, Camera, UserPlus, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,7 +26,6 @@ export const Inbox = () => {
   const [callDuration, setCallDuration] = useState(0);
   const [callTimer, setCallTimer] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const mainVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -73,7 +74,11 @@ export const Inbox = () => {
               
               // Play sound if it's an incoming message
               if (msg.sender_id !== parsedUser.id) {
-                audioRef.current?.play().catch(e => console.log('Audio play failed:', e));
+                if (activeChat && (msg.sender_id === activeChat.id || msg.receiver_id === activeChat.id)) {
+                  playSound('chatboxNotification');
+                } else {
+                  playSound('notification');
+                }
               }
               
               // Scroll to bottom if user is already near bottom
@@ -106,15 +111,11 @@ export const Inbox = () => {
 
     connectWS();
 
-    // Initialize audio
-    audioRef.current = new Audio('https://tsameemevents.com/wp-content/uploads/notification-sound.mp3');
-    callAudioRef.current = new Audio('https://tsameemevents.com/wp-content/uploads/calling.mp3');
-    callAudioRef.current.loop = true;
-
     // Request permissions
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
+    checkForUpdates();
   }, [navigate]);
 
   useEffect(() => {
@@ -127,7 +128,7 @@ export const Inbox = () => {
           const data = await res.json();
           if (data && data.status === 'calling') {
             setActiveCall({ ...data, isIncoming: true });
-            callAudioRef.current?.play().catch(e => console.log('Audio play failed:', e));
+            playSound('calling', true);
           }
         }
       } catch (err) {
@@ -273,7 +274,7 @@ export const Inbox = () => {
         body: JSON.stringify({ status: 'connected' })
       });
       setActiveCall(prev => ({ ...prev, status: 'connected', type: withVideo ? prev.type : 'audio' }));
-      callAudioRef.current?.pause();
+      stopSound('calling');
       startCallTimer();
     } catch (err) {
       alert('Permission denied or device not found for camera/microphone.');
@@ -489,6 +490,7 @@ export const Inbox = () => {
         throw new Error('Failed to send message');
       }
       
+      playSound('messageDelivered');
       fetchMessages(activeChat.id);
     } catch (err) {
       console.error('Error sending message:', err);
@@ -992,51 +994,51 @@ export const Inbox = () => {
 
             {/* Bottom Controls */}
             {(!activeCall.isIncoming || activeCall.status === 'connected') && (
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-4 bg-black/40 backdrop-blur-xl px-8 py-4 rounded-full border border-white/10 z-20 max-w-[90%]">
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-2 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-20 max-w-[90%]">
                 <button 
                   onClick={toggleMute}
-                  className={`p-4 rounded-full transition-all ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
+                  className={`p-3 rounded-full transition-all ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
                   title={isMuted ? "Unmute" : "Mute"}
                 >
-                  {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+                  {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
                 </button>
                 {activeCall.type === 'video' && (
                   <>
                     <button 
                       onClick={toggleVideo}
-                      className={`p-4 rounded-full transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
+                      className={`p-3 rounded-full transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
                       title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}
                     >
-                      {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
+                      {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
                     </button>
                     <button 
                       onClick={flipCamera}
-                      className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                      className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                       title="Flip Camera"
                     >
-                      <RefreshCw size={24} />
+                      <RefreshCw size={20} />
                     </button>
                   </>
                 )}
                 <button 
                   onClick={() => setIsSpeaker(!isSpeaker)}
-                  className={`p-4 rounded-full transition-all ${isSpeaker ? 'bg-brand/20 text-brand' : 'bg-white/10 hover:bg-white/20'}`}
+                  className={`p-3 rounded-full transition-all ${isSpeaker ? 'bg-brand/20 text-brand' : 'bg-white/10 hover:bg-white/20'}`}
                   title={isSpeaker ? "Speaker Off" : "Speaker On"}
                 >
-                  <Volume2 size={24} />
+                  <Volume2 size={20} />
                 </button>
                 <button 
-                  className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                   title="Add Participant"
                 >
-                  <UserPlus size={24} />
+                  <UserPlus size={20} />
                 </button>
                 <button 
                   onClick={handleEndCall}
-                  className="p-4 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all ml-4"
+                  className="p-3 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all ml-2"
                   title="Hang Up"
                 >
-                  <PhoneOff size={24} />
+                  <PhoneOff size={20} />
                 </button>
               </div>
             )}
@@ -1309,10 +1311,10 @@ export const Inbox = () => {
                 </div>
 
                 {/* Message Input */}
-                <div className="p-4 border-t border-white/5 bg-dark/50 shrink-0">
-                  <form onSubmit={handleSendMessage} className="flex gap-2">
-                    <label className="bg-dark border border-white/10 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-center">
-                      <Paperclip size={20} className="text-gray-400" />
+                <div className="p-2 md:p-4 border-t border-white/5 bg-dark/50 shrink-0">
+                  <form onSubmit={handleSendMessage} className="flex gap-1 md:gap-2 items-center">
+                    <label className="bg-dark border border-white/10 p-2 md:p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-center shrink-0">
+                      <Paperclip size={18} className="md:size-5 text-gray-400" />
                       <input 
                         type="file" 
                         className="hidden" 
@@ -1323,24 +1325,24 @@ export const Inbox = () => {
                     <button
                       type="button"
                       onClick={isRecording ? stopRecording : startRecording}
-                      className={`p-3 rounded-xl transition-all ${isRecording ? 'bg-red-500/20 text-red-500 animate-pulse' : 'bg-dark border border-white/10 hover:bg-white/5 text-gray-400'}`}
+                      className={`p-2 md:p-3 rounded-xl transition-all shrink-0 ${isRecording ? 'bg-red-500/20 text-red-500 animate-pulse' : 'bg-dark border border-white/10 hover:bg-white/5 text-gray-400'}`}
                       title={isRecording ? "Stop Recording" : "Record Voice Message"}
                     >
-                      <Mic size={20} />
+                      <Mic size={18} className="md:size-5" />
                     </button>
                     <input
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder="Type your message..."
-                      className="flex-1 bg-dark border border-white/10 rounded-xl px-4 py-3 focus:border-brand outline-none transition-all"
+                      className="flex-1 min-w-0 bg-dark border border-white/10 rounded-xl px-3 md:px-4 py-2 md:py-3 focus:border-brand outline-none transition-all text-sm"
                     />
                     <button
                       type="submit"
                       disabled={!newMessage.trim()}
-                      className="bg-brand text-dark p-3 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center"
+                      className="bg-brand text-dark p-2 md:p-3 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center shrink-0"
                     >
-                      <Send size={20} />
+                      <Send size={18} className="md:size-5" />
                     </button>
                   </form>
                 </div>
