@@ -25,6 +25,7 @@ export const Inbox = () => {
   const [callTimer, setCallTimer] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null); // Dedicated ref for remote audio
   const callAudioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
@@ -177,6 +178,12 @@ export const Inbox = () => {
 
     return () => clearTimeout(timeout);
   }, [activeCall]);
+
+  useEffect(() => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, activeCall?.status]);
 
   const startCallTimer = () => {
     setCallDuration(0);
@@ -693,9 +700,8 @@ export const Inbox = () => {
             {activeCall.status === 'connected' && (
               <audio 
                 autoPlay 
-                ref={audio => {
-                  if (audio) audio.srcObject = remoteStream;
-                }}
+                playsInline
+                ref={remoteAudioRef}
               />
             )}
 
