@@ -56,7 +56,8 @@ export const PWAInstallPopup = () => {
       const user = localStorage.getItem('ya-user');
       if (user) return; 
 
-      if (isInstalled && !updateAvailable) return;
+      // Strictly do not show if already installed
+      if (isInstalled) return;
 
       const lastDismissed = localStorage.getItem('pwa-popup-dismissed');
       if (!lastDismissed || Date.now() - parseInt(lastDismissed) > 30 * 24 * 60 * 60 * 1000) {

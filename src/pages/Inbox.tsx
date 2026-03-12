@@ -28,6 +28,7 @@ export const Inbox = () => {
   const callAudioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
+  const iceCandidateQueue = useRef<RTCIceCandidateInit[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -300,17 +301,35 @@ export const Inbox = () => {
     }
 
     await peerRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    // Process queued candidates
+    while (iceCandidateQueue.current.length > 0) {
+      const candidate = iceCandidateQueue.current.shift();
+      if (candidate) {
+        await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    }
   };
 
   const handleReceiveAnswer = async (answer: RTCSessionDescriptionInit) => {
     if (peerRef.current) {
       await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      
+      // Process queued candidates
+      while (iceCandidateQueue.current.length > 0) {
+        const candidate = iceCandidateQueue.current.shift();
+        if (candidate) {
+          await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+      }
     }
   };
 
   const handleReceiveIceCandidate = async (candidate: RTCIceCandidateInit) => {
-    if (peerRef.current) {
+    if (peerRef.current && peerRef.current.remoteDescription) {
       await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+    } else {
+      iceCandidateQueue.current.push(candidate);
     }
   };
 
@@ -670,6 +689,16 @@ export const Inbox = () => {
             exit={{ opacity: 0, scale: 0.9 }}
             className="fixed inset-0 z-50 bg-dark flex flex-col items-center justify-center overflow-hidden"
           >
+            {/* Audio element for remote stream */}
+            {activeCall.status === 'connected' && (
+              <audio 
+                autoPlay 
+                ref={audio => {
+                  if (audio) audio.srcObject = remoteStream;
+                }}
+              />
+            )}
+
             {/* Background for video call */}
             {activeCall.type === 'video' && activeCall.status === 'connected' && (
               <video 
@@ -677,7 +706,10 @@ export const Inbox = () => {
                 playsInline 
                 muted={swapPreview}
                 ref={video => {
-                  if (video) video.srcObject = swapPreview ? callStream : remoteStream;
+                  if (video) {
+                    video.srcObject = swapPreview ? callStream : remoteStream;
+                    video.style.transform = swapPreview ? 'scaleX(-1)' : 'none';
+                  }
                 }}
                 className="absolute inset-0 w-full h-full object-cover"
               />
@@ -694,7 +726,10 @@ export const Inbox = () => {
                   playsInline 
                   muted={!swapPreview}
                   ref={video => {
-                    if (video) video.srcObject = swapPreview ? remoteStream : callStream;
+                    if (video) {
+                      video.srcObject = swapPreview ? remoteStream : callStream;
+                      video.style.transform = swapPreview ? 'none' : 'scaleX(-1)';
+                    }
                   }}
                   className="w-full h-full object-cover"
                 />
