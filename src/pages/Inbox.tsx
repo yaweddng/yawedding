@@ -42,24 +42,65 @@ export const Inbox = () => {
     }
     
     // Initialize WebSocket
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}?userId=${parsedUser.id}`;
-    wsRef.current = new WebSocket(wsUrl);
+    const connectWS = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}?userId=${parsedUser.id}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    wsRef.current.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'offer') {
-          handleReceiveOffer(data.payload, data.fromUserId);
-        } else if (data.type === 'answer') {
-          handleReceiveAnswer(data.payload);
-        } else if (data.type === 'ice-candidate') {
-          handleReceiveIceCandidate(data.payload);
+      ws.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'offer') {
+            handleReceiveOffer(data.payload, data.fromUserId);
+          } else if (data.type === 'answer') {
+            handleReceiveAnswer(data.payload);
+          } else if (data.type === 'ice-candidate') {
+            handleReceiveIceCandidate(data.payload);
+          } else if (data.type === 'chat-message') {
+            const msg = data.payload;
+            // Only add if it's for the active chat
+            if (activeChat && (msg.sender_id === activeChat.id || msg.receiver_id === activeChat.id)) {
+              setMessages(prev => {
+                // Avoid duplicates
+                if (prev.find(m => m.id === msg.id)) return prev;
+                return [...prev, msg];
+              });
+              
+              // Play sound if it's an incoming message
+              if (msg.sender_id !== parsedUser.id) {
+                audioRef.current?.play().catch(e => console.log('Audio play failed:', e));
+              }
+              
+              // Scroll to bottom if user is already near bottom
+              const container = messagesEndRef.current?.parentElement;
+              if (container) {
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+                if (isNearBottom || msg.sender_id === parsedUser.id) {
+                  setTimeout(scrollToBottom, 100);
+                }
+              }
+            }
+            // Refresh conversations list to show latest message/unread
+            fetchConversations();
+          }
+        } catch (e) {
+          console.error('WebSocket message error:', e);
         }
-      } catch (e) {
-        console.error('WebSocket message error:', e);
-      }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected. Reconnecting in 3s...');
+        setTimeout(connectWS, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        ws.close();
+      };
     };
+
+    connectWS();
 
     // Initialize audio
     audioRef.current = new Audio('https://tsameemevents.com/wp-content/uploads/notification-sound.mp3');
@@ -298,16 +339,27 @@ export const Inbox = () => {
       if (res.ok) {
         const data = await res.json();
         
-        // Play sound if new message received
+        // Play sound if new message received from polling fallback
         if (data.length > messages.length && messages.length > 0) {
           const lastMsg = data[data.length - 1];
           if (lastMsg.sender_id !== user.id) {
             audioRef.current?.play().catch(e => console.log('Audio play failed:', e));
           }
+          
+          // Only scroll if we were already at the bottom
+          const container = messagesEndRef.current?.parentElement;
+          if (container) {
+            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            if (isNearBottom) {
+              setTimeout(scrollToBottom, 100);
+            }
+          }
         }
         
         setMessages(data);
-        scrollToBottom();
+        if (messages.length === 0) {
+          setTimeout(scrollToBottom, 100); // Initial load scroll
+        }
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
@@ -318,9 +370,10 @@ export const Inbox = () => {
     if (!activeChat || !user) return;
 
     fetchMessages(activeChat.id);
-    const interval = setInterval(() => fetchMessages(activeChat.id), 5000); // Poll every 5s
+    // Polling is now a fallback, increased interval to 15s
+    const interval = setInterval(() => fetchMessages(activeChat.id), 15000);
     return () => clearInterval(interval);
-  }, [activeChat, user, messages.length]);
+  }, [activeChat, user]);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);

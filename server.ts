@@ -44,6 +44,15 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  const clients = new Map<string, WebSocket>();
+
+  const broadcastToUser = (userId: string, data: any) => {
+    const ws = clients.get(userId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+    }
+  };
+
   app.use(express.json());
 
   // API Routes
@@ -315,10 +324,9 @@ async function startServer() {
   // Helper for generating OTP
   const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-  // Helper for sending OTP Email
-  const sendOTPEmail = async (email: string, otp: string, type: 'verification' | 'reset', name?: string) => {
-    // Load Development Settings for SMTP
-    let devSettings = {
+  // Helper to get SMTP settings
+  const getSMTPSettings = () => {
+    let settings = {
       smtpHost: process.env.SMTP_HOST || "smtp.example.com",
       smtpPort: process.env.SMTP_PORT || "587",
       smtpUser: process.env.SMTP_USER,
@@ -330,19 +338,28 @@ async function startServer() {
     try {
       if (fs.existsSync(DEVELOPMENT_PATH)) {
         const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
-        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
-        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
-        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
-        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
-        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
+        if (fileData.smtpHost) settings.smtpHost = fileData.smtpHost;
+        if (fileData.smtpPort) settings.smtpPort = fileData.smtpPort.toString();
+        if (fileData.smtpUser) settings.smtpUser = fileData.smtpUser;
+        if (fileData.smtpPass) settings.smtpPass = fileData.smtpPass;
+        if (fileData.fromEmail) settings.fromEmail = fileData.fromEmail;
+        if (fileData.adminEmail) settings.adminEmail = fileData.adminEmail;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to load SMTP settings from file:", e);
+    }
+    return settings;
+  };
 
+  // Helper for sending OTP Email
+  const sendOTPEmail = async (email: string, otp: string, type: 'verification' | 'reset', name?: string) => {
+    const settings = getSMTPSettings();
+    
     const transporter = nodemailer.createTransport({
-      host: devSettings.smtpHost,
-      port: parseInt(devSettings.smtpPort),
-      secure: devSettings.smtpPort === "465",
-      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
+      host: settings.smtpHost,
+      port: parseInt(settings.smtpPort),
+      secure: settings.smtpPort === "465",
+      auth: { user: settings.smtpUser, pass: settings.smtpPass },
       tls: { rejectUnauthorized: false }
     });
 
@@ -372,12 +389,14 @@ async function startServer() {
     `;
 
     try {
+      console.log(`Attempting to send OTP email to ${email}...`);
       await transporter.sendMail({
-        from: `"YA Wedding" <${devSettings.fromEmail}>`,
+        from: `"YA Wedding" <${settings.fromEmail}>`,
         to: email,
         subject,
         html
       });
+      console.log(`OTP email sent successfully to ${email}`);
       return true;
     } catch (e) {
       console.error("Failed to send OTP email:", e);
@@ -386,30 +405,13 @@ async function startServer() {
   };
 
   const sendWelcomeEmail = async (email: string, name: string) => {
-    let devSettings = {
-      smtpHost: process.env.SMTP_HOST || "smtp.example.com",
-      smtpPort: process.env.SMTP_PORT || "587",
-      smtpUser: process.env.SMTP_USER,
-      smtpPass: process.env.SMTP_PASS,
-      fromEmail: process.env.FROM_EMAIL || "noreply@example.com"
-    };
-
-    try {
-      if (fs.existsSync(DEVELOPMENT_PATH)) {
-        const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
-        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
-        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
-        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
-        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
-        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
-      }
-    } catch (e) {}
+    const settings = getSMTPSettings();
 
     const transporter = nodemailer.createTransport({
-      host: devSettings.smtpHost,
-      port: parseInt(devSettings.smtpPort),
-      secure: devSettings.smtpPort === "465",
-      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
+      host: settings.smtpHost,
+      port: parseInt(settings.smtpPort),
+      secure: settings.smtpPort === "465",
+      auth: { user: settings.smtpUser, pass: settings.smtpPass },
       tls: { rejectUnauthorized: false }
     });
 
@@ -425,7 +427,7 @@ async function startServer() {
           We are excited to have you on our luxury event planning platform.
         </p>
         <div style="text-align: center; margin-bottom: 30px;">
-          <a href="https://ya.tsameemevents.com/login" style="background-color: ${brandColor}; color: #141414; padding: 16px 35px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Login to Your Account</a>
+          <a href="${process.env.APP_URL || 'https://ya.tsameemevents.com'}/login" style="background-color: ${brandColor}; color: #141414; padding: 16px 35px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Login to Your Account</a>
         </div>
         <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
           <p style="color: ${brandColor}; font-weight: bold; margin: 0;">YA WEDDING DUBAI</p>
@@ -435,12 +437,14 @@ async function startServer() {
     `;
 
     try {
+      console.log(`Attempting to send welcome email to ${email}...`);
       await transporter.sendMail({
-        from: `"YA Wedding" <${devSettings.fromEmail}>`,
+        from: `"YA Wedding" <${settings.fromEmail}>`,
         to: email,
         subject: "Welcome to YA Wedding!",
         html
       });
+      console.log(`Welcome email sent successfully to ${email}`);
       return true;
     } catch (e) {
       console.error("Failed to send welcome email:", e);
@@ -449,30 +453,13 @@ async function startServer() {
   };
 
   const sendEmail = async (email: string, subject: string, html: string) => {
-    let devSettings = {
-      smtpHost: process.env.SMTP_HOST || "smtp.example.com",
-      smtpPort: process.env.SMTP_PORT || "587",
-      smtpUser: process.env.SMTP_USER,
-      smtpPass: process.env.SMTP_PASS,
-      fromEmail: process.env.FROM_EMAIL || "noreply@example.com"
-    };
-
-    try {
-      if (fs.existsSync(DEVELOPMENT_PATH)) {
-        const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
-        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
-        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
-        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
-        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
-        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
-      }
-    } catch (e) {}
+    const settings = getSMTPSettings();
 
     const transporter = nodemailer.createTransport({
-      host: devSettings.smtpHost,
-      port: parseInt(devSettings.smtpPort),
-      secure: devSettings.smtpPort === "465",
-      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
+      host: settings.smtpHost,
+      port: parseInt(settings.smtpPort),
+      secure: settings.smtpPort === "465",
+      auth: { user: settings.smtpUser, pass: settings.smtpPass },
       tls: { rejectUnauthorized: false }
     });
 
@@ -493,12 +480,14 @@ async function startServer() {
     `;
 
     try {
+      console.log(`Attempting to send generic email to ${email} with subject: ${subject}...`);
       await transporter.sendMail({
-        from: `"YA Wedding" <${devSettings.fromEmail}>`,
+        from: `"YA Wedding" <${settings.fromEmail}>`,
         to: email,
         subject,
         html: fullHtml
       });
+      console.log(`Generic email sent successfully to ${email}`);
       return true;
     } catch (e) {
       console.error("Failed to send email:", e);
@@ -507,65 +496,18 @@ async function startServer() {
   };
 
   const sendUnreadNotificationEmail = async (email: string, count: number) => {
-    let devSettings = {
-      smtpHost: process.env.SMTP_HOST || "smtp.example.com",
-      smtpPort: process.env.SMTP_PORT || "587",
-      smtpUser: process.env.SMTP_USER,
-      smtpPass: process.env.SMTP_PASS,
-      fromEmail: process.env.FROM_EMAIL || "noreply@example.com"
-    };
-
-    try {
-      if (fs.existsSync(DEVELOPMENT_PATH)) {
-        const fileData = JSON.parse(fs.readFileSync(DEVELOPMENT_PATH, "utf-8"));
-        if (fileData.smtpHost) devSettings.smtpHost = fileData.smtpHost;
-        if (fileData.smtpPort) devSettings.smtpPort = fileData.smtpPort;
-        if (fileData.smtpUser) devSettings.smtpUser = fileData.smtpUser;
-        if (fileData.smtpPass) devSettings.smtpPass = fileData.smtpPass;
-        if (fileData.fromEmail) devSettings.fromEmail = fileData.fromEmail;
-      }
-    } catch (e) {}
-
-    const transporter = nodemailer.createTransport({
-      host: devSettings.smtpHost,
-      port: parseInt(devSettings.smtpPort),
-      secure: devSettings.smtpPort === "465",
-      auth: { user: devSettings.smtpUser, pass: devSettings.smtpPass },
-      tls: { rejectUnauthorized: false }
-    });
-
-    const brandColor = "#00C896";
+    const subject = "You have unread messages!";
     const html = `
-      <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; background-color: #0B0F14; color: #FFFFFF; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <div style="display: inline-block; width: 60px; height: 60px; background-color: ${brandColor}; color: #141414; border-radius: 12px; line-height: 60px; font-size: 24px; font-weight: bold;">YA</div>
-        </div>
-        <h2 style="text-align: center; color: ${brandColor}; font-size: 24px; margin-bottom: 20px;">You have unread messages!</h2>
-        <p style="text-align: center; color: #9CA3AF; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
-          You have ${count} unread message${count > 1 ? 's' : ''} waiting for you in your YA Wedding inbox.
-        </p>
-        <div style="text-align: center; margin-bottom: 30px;">
-          <a href="https://ya.tsameemevents.com/inbox" style="background-color: ${brandColor}; color: #141414; padding: 16px 35px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">View Messages</a>
-        </div>
-        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
-          <p style="color: ${brandColor}; font-weight: bold; margin: 0;">YA WEDDING DUBAI</p>
-          <p style="color: #4B5563; font-size: 10px; margin-top: 5px;">Luxury Event Planning & Design</p>
-        </div>
+      <h2 style="color: #00C896; font-size: 24px; margin-bottom: 20px;">You have unread messages!</h2>
+      <p style="color: #9CA3AF; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+        You have ${count} unread message${count > 1 ? 's' : ''} waiting for you in your YA Wedding inbox.
+      </p>
+      <div style="text-align: center; margin-bottom: 30px;">
+        <a href="${process.env.APP_URL || 'https://ya.tsameemevents.com'}/inbox" style="background-color: #00C896; color: #141414; padding: 16px 35px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">View Messages</a>
       </div>
     `;
 
-    try {
-      await transporter.sendMail({
-        from: `"YA Wedding" <${devSettings.fromEmail}>`,
-        to: email,
-        subject: "Unread Messages Notification",
-        html
-      });
-      return true;
-    } catch (e) {
-      console.error("Failed to send unread notification email:", e);
-      return false;
-    }
+    return await sendEmail(email, subject, html);
   };
 
   // 30-day file cleanup task (runs daily)
@@ -708,7 +650,17 @@ async function startServer() {
       db.prepare("UPDATE users SET is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE id = ?").run(user.id);
       
       // Send Welcome Email
-      // ... (Implementation omitted for brevity, but similar to OTP email)
+      await sendWelcomeEmail(user.email, user.name || user.username);
+
+      // Add welcome message from admin in chat
+      const admin = db.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY created_at ASC LIMIT 1").get();
+      const adminId = admin ? admin.id : 'admin';
+      
+      const welcomeMsgId = Math.random().toString(36).substr(2, 9);
+      db.prepare(`
+        INSERT INTO messages (id, sender_id, receiver_id, content)
+        VALUES (?, ?, ?, ?)
+      `).run(welcomeMsgId, adminId, user.id, "Welcome to YA Wedding! I'm your admin assistant. How can I help you today?");
 
       res.json({ 
         success: true, 
@@ -855,6 +807,21 @@ async function startServer() {
           if (content) {
             const msgId = Date.now().toString();
             db.prepare("INSERT INTO messages (id, sender_id, receiver_id, content) VALUES (?, ?, ?, ?)").run(msgId, call.caller_id, call.receiver_id, content);
+            
+            // Broadcast to both
+            const msgData = {
+              type: 'chat-message',
+              payload: {
+                id: msgId,
+                sender_id: call.caller_id,
+                receiver_id: call.receiver_id,
+                content,
+                created_at: new Date().toISOString(),
+                is_read: 0
+              }
+            };
+            broadcastToUser(call.caller_id, msgData);
+            broadcastToUser(call.receiver_id, msgData);
           }
         }
       } else {
@@ -1094,6 +1061,12 @@ async function startServer() {
       
       const newMessage = db.prepare("SELECT * FROM messages WHERE id = ?").get(id);
       
+      // Broadcast via WebSocket
+      broadcastToUser(receiver_id, {
+        type: 'chat-message',
+        payload: newMessage
+      });
+
       // Trigger push notification for receiver
       const subscriptions = db.prepare("SELECT * FROM push_subscriptions WHERE user_id = ?").all(receiver_id);
       const sender = db.prepare("SELECT name FROM users WHERE id = ?").get(sender_id);
@@ -2614,7 +2587,6 @@ async function startServer() {
   });
 
   const wss = new WebSocketServer({ server });
-  const clients = new Map<string, WebSocket>();
 
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url || '', `http://${req.headers.host}`);
@@ -2626,14 +2598,17 @@ async function startServer() {
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());
-          const targetWs = clients.get(data.targetUserId);
           
-          if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-            targetWs.send(JSON.stringify({
-              type: data.type,
-              payload: data.payload,
-              fromUserId: userId
-            }));
+          // Handle signaling
+          if (['offer', 'answer', 'ice-candidate'].includes(data.type)) {
+            const targetWs = clients.get(data.targetUserId);
+            if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+              targetWs.send(JSON.stringify({
+                type: data.type,
+                payload: data.payload,
+                fromUserId: userId
+              }));
+            }
           }
         } catch (e) {
           console.error('WebSocket message error:', e);

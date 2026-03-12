@@ -3769,6 +3769,7 @@ export const Admin = () => {
                       <tr className="bg-white/5 border-b border-white/10">
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">User</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Role</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Status</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Verification</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500">Joined</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-gray-500 text-right">Actions</th>
@@ -3792,7 +3793,7 @@ export const Admin = () => {
                             <select 
                               value={user.role}
                               onChange={(e) => handleUpdateUser(user.id, { role: e.target.value })}
-                              className="bg-dark border border-white/10 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-brand"
+                              className="bg-dark border border-white/10 rounded-lg px-2 py-1 text-[10px] font-bold uppercase text-gray-300 outline-none focus:border-brand"
                             >
                               <option value="customer">Customer</option>
                               <option value="admin">Admin</option>
@@ -3800,14 +3801,31 @@ export const Admin = () => {
                             </select>
                           </td>
                           <td className="px-6 py-4">
-                            <button
-                              onClick={() => handleUpdateUser(user.id, { is_verified: user.is_verified ? 0 : 1 })}
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                user.is_verified ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                            <select 
+                              value={user.subscription_status || 'trial'}
+                              onChange={(e) => handleUpdateUser(user.id, { subscription_status: e.target.value })}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase outline-none border border-white/10 bg-dark ${
+                                user.subscription_status === 'active' ? 'text-green-500' : 
+                                user.subscription_status === 'expired' ? 'text-red-500' : 'text-yellow-500'
                               }`}
                             >
-                              {user.is_verified ? 'Verified' : 'Unverified'}
-                            </button>
+                              <option value="trial">Trial</option>
+                              <option value="active">Active</option>
+                              <option value="expired">Expired</option>
+                              <option value="suspended">Suspended</option>
+                            </select>
+                          </td>
+                          <td className="px-6 py-4">
+                            <select 
+                              value={user.is_verified ? '1' : '0'}
+                              onChange={(e) => handleUpdateUser(user.id, { is_verified: parseInt(e.target.value) })}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase outline-none border border-white/10 bg-dark ${
+                                user.is_verified ? 'text-brand' : 'text-red-400'
+                              }`}
+                            >
+                              <option value="1">Verified</option>
+                              <option value="0">Unverified</option>
+                            </select>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-400">
                             {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
