@@ -791,11 +791,33 @@ async function startServer() {
   });
 
   // Calls Endpoints
+  app.get("/api/calls/active", (req, res) => {
+    const { userId } = req.query;
+    try {
+      const call = db.prepare("SELECT * FROM active_calls WHERE (caller_id = ? OR receiver_id = ?) AND status = 'calling' ORDER BY id DESC LIMIT 1").get(userId, userId);
+      res.json({ call });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch active call" });
+    }
+  });
+
   app.post("/api/calls", (req, res) => {
     const { caller_id, receiver_id, type } = req.body;
     try {
       const id = Date.now().toString();
       db.prepare("INSERT INTO active_calls (id, caller_id, receiver_id, type, status) VALUES (?, ?, ?, ?, 'calling')").run(id, caller_id, receiver_id, type);
+      
+      // Trigger push notification for receiver
+      const subscriptions = db.prepare("SELECT * FROM push_subscriptions WHERE user_id = ?").all(receiver_id);
+      const payload = JSON.stringify({
+        title: "Incoming Call",
+        body: `You have an incoming ${type} call`,
+        data: { url: `/inbox` }
+      });
+      subscriptions.forEach((sub: any) => {
+        webpush.sendNotification(JSON.parse(sub.subscription), payload).catch(e => console.error("Failed to send push notification:", e));
+      });
+      
       res.json({ success: true, callId: id });
     } catch (e) {
       res.status(500).json({ error: "Failed to start call" });

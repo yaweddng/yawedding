@@ -40,3 +40,13 @@ export const resetApp = async () => {
     window.location.reload();
   }
 };
+
+export const checkForUpdates = async () => {
+  if ('serviceWorker' in navigator) {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration && registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      window.location.reload();
+    }
+  }
+};

@@ -313,8 +313,14 @@ export const Inbox = () => {
       };
 
       peerRef.current.ontrack = (event) => {
-        console.log('Remote track received in handleReceiveOffer:', event.track.kind);
-        setRemoteStream(event.streams[0]);
+        console.log('Remote track received:', event.track.kind);
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+        } else {
+          let stream = new MediaStream();
+          stream.addTrack(event.track);
+          setRemoteStream(stream);
+        }
       };
     }
 
@@ -365,6 +371,20 @@ export const Inbox = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check for active calls on load
+    fetch(`/api/calls/active?userId=${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.call) {
+          setActiveCall(data.call);
+        }
+      })
+      .catch(err => console.error('Failed to check active calls:', err));
+  }, [user]);
 
   useEffect(() => {
     fetchConversations();
@@ -476,6 +496,134 @@ export const Inbox = () => {
     }
   };
 
+  const toggleMute = () => {
+    if (callStream) {
+      callStream.getAudioTracks().forEach(track => track.enabled = isMuted);
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await sendVoiceMessage(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Error starting recording:', err);
+      alert('Could not access microphone.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const sendVoiceMessage = async (audioBlob: Blob) => {
+    if (!activeChat || !user) return;
+
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'voice-message.webm');
+
+    let tempMessage: any = null;
+
+    try {
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      const fileData = await uploadRes.json();
+
+      tempMessage = {
+        id: Date.now().toString(),
+        sender_id: user.id,
+        receiver_id: activeChat.id,
+        content: '[Voice Message]',
+        file_url: fileData.url,
+        file_name: fileData.name,
+        file_type: 'audio/webm',
+        created_at: new Date().toISOString(),
+      };
+
+      setMessages(prev => [...prev, tempMessage]);
+
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender_id: user.id,
+          receiver_id: activeChat.id,
+          content: '[Voice Message]',
+          file_url: fileData.url,
+          file_name: fileData.name,
+          file_type: 'audio/webm',
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to send message');
+      fetchMessages(activeChat.id);
+    } catch (err) {
+      console.error('Error sending voice message:', err);
+      if (tempMessage) {
+        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+      }
+    }
+  };
+
+  const toggleVideo = () => {
+    if (callStream) {
+      callStream.getVideoTracks().forEach(track => track.enabled = isVideoOff);
+      setIsVideoOff(!isVideoOff);
+    }
+  };
+
+  const flipCamera = async () => {
+    if (!callStream) return;
+    const videoTrack = callStream.getVideoTracks()[0];
+    const currentFacingMode = videoTrack.getSettings().facingMode;
+    const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newFacingMode },
+        audio: true
+      });
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      
+      const sender = peerRef.current?.getSenders().find(s => s.track?.kind === 'video');
+      if (sender) {
+        await sender.replaceTrack(newVideoTrack);
+      }
+      
+      videoTrack.stop();
+      setCallStream(newStream);
+    } catch (err) {
+      console.error('Error flipping camera:', err);
+    }
+  };
+
   const handleCall = async (type: 'audio' | 'video') => {
     if (!activeChat) return;
     if (activeChat.calls_enabled === 0) {
@@ -490,6 +638,10 @@ export const Inbox = () => {
       setCallStream(stream);
 
       // Initialize PeerConnection
+      if (peerRef.current) {
+        peerRef.current.close();
+        peerRef.current = null;
+      }
       peerRef.current = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
@@ -505,8 +657,14 @@ export const Inbox = () => {
       };
 
       peerRef.current.ontrack = (event) => {
-        console.log('Remote track received in handleCall:', event.track.kind);
-        setRemoteStream(event.streams[0]);
+        console.log('Remote track received:', event.track.kind);
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+        } else {
+          let stream = new MediaStream();
+          stream.addTrack(event.track);
+          setRemoteStream(stream);
+        }
       };
 
       stream.getTracks().forEach(track => {
@@ -834,9 +992,9 @@ export const Inbox = () => {
 
             {/* Bottom Controls */}
             {(!activeCall.isIncoming || activeCall.status === 'connected') && (
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/40 backdrop-blur-xl px-8 py-4 rounded-full border border-white/10 z-20">
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-4 bg-black/40 backdrop-blur-xl px-8 py-4 rounded-full border border-white/10 z-20 max-w-[90%]">
                 <button 
-                  onClick={() => setIsMuted(!isMuted)}
+                  onClick={toggleMute}
                   className={`p-4 rounded-full transition-all ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
                   title={isMuted ? "Unmute" : "Mute"}
                 >
@@ -845,13 +1003,14 @@ export const Inbox = () => {
                 {activeCall.type === 'video' && (
                   <>
                     <button 
-                      onClick={() => setIsVideoOff(!isVideoOff)}
+                      onClick={toggleVideo}
                       className={`p-4 rounded-full transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20'}`}
                       title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}
                     >
                       {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
                     </button>
                     <button 
+                      onClick={flipCamera}
                       className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                       title="Flip Camera"
                     >
@@ -889,7 +1048,7 @@ export const Inbox = () => {
       {activeCall && isMinimized && (
         <div 
           onClick={() => setIsMinimized(false)}
-          className="fixed bottom-6 right-6 z-50 bg-brand text-white p-4 rounded-full shadow-2xl cursor-pointer hover:scale-105 transition-transform flex items-center gap-3 animate-pulse"
+          className="fixed bottom-6 right-6 z-[100] bg-brand text-white p-4 rounded-full shadow-2xl cursor-pointer hover:scale-105 transition-transform flex items-center gap-3 animate-pulse"
         >
           {activeCall.type === 'video' ? <Video size={24} /> : <PhoneCall size={24} />}
           <span className="font-medium">
@@ -1150,7 +1309,7 @@ export const Inbox = () => {
                 </div>
 
                 {/* Message Input */}
-                <div className="p-4 border-t border-white/5 bg-dark/50">
+                <div className="p-4 border-t border-white/5 bg-dark/50 shrink-0">
                   <form onSubmit={handleSendMessage} className="flex gap-2">
                     <label className="bg-dark border border-white/10 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-center">
                       <Paperclip size={20} className="text-gray-400" />
@@ -1161,6 +1320,14 @@ export const Inbox = () => {
                         title="Attach file (max 10MB)"
                       />
                     </label>
+                    <button
+                      type="button"
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={`p-3 rounded-xl transition-all ${isRecording ? 'bg-red-500/20 text-red-500 animate-pulse' : 'bg-dark border border-white/10 hover:bg-white/5 text-gray-400'}`}
+                      title={isRecording ? "Stop Recording" : "Record Voice Message"}
+                    >
+                      <Mic size={20} />
+                    </button>
                     <input
                       type="text"
                       value={newMessage}
