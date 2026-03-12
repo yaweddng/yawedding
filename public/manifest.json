@@ -1,12 +1,17 @@
 {
   "name": "YA Wedding - Luxury Wedding Planner Dubai",
   "short_name": "YA Wedding",
-  "description": "Dubai's premier luxury wedding planner specializing in traditional Emarati, Indian, and Western weddings.",
-  "start_url": "/",
+  "id": "/?source=pwa",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "display_override": ["tabbed", "window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "categories": ["lifestyle", "business"],
+  "description": "Dubai's premier luxury wedding planner specializing in traditional Emarati, Indian, and Western weddings.",
   "background_color": "#050505",
   "theme_color": "#00C896",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/favicon.svg",

@@ -103,10 +103,27 @@ self.addEventListener('periodicsync', (event) => {
   }
 });
 
-// Message Event - SKIP_WAITING
+// Message Event - SKIP_WAITING or PURGE
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+  if (event.data) {
+    if (event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+    } else if (event.data.type === 'PURGE') {
+      console.log('Service Worker: Purging all caches...');
+      event.waitUntil(
+        caches.keys().then((cacheNames) => {
+          return Promise.all(
+            cacheNames.map((cacheName) => caches.delete(cacheName))
+          );
+        }).then(() => {
+          console.log('Service Worker: All caches purged.');
+          // Notify client that purge is complete
+          if (event.source) {
+            event.source.postMessage({ type: 'PURGE_COMPLETE' });
+          }
+        })
+      );
+    }
   }
 });
 

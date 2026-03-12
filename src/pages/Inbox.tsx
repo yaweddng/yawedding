@@ -360,6 +360,13 @@ export const Inbox = () => {
         if (messages.length === 0) {
           setTimeout(scrollToBottom, 100); // Initial load scroll
         }
+
+        // Mark as read
+        fetch('/api/messages/mark-read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, otherUserId })
+        }).then(() => fetchConversations()); // Refresh sidebar unread counts
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
@@ -951,8 +958,27 @@ export const Inbox = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold truncate">{conv.name || conv.username}</h3>
-                      <p className="text-sm text-gray-400 truncate capitalize">{conv.role}</p>
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-bold truncate text-sm">{conv.name || conv.username}</h3>
+                        {conv.last_message_at && (
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">
+                            {new Date(conv.last_message_at).toLocaleDateString() === new Date().toLocaleDateString()
+                              ? new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              : new Date(conv.last_message_at).toLocaleDateString([], { month: 'short', day: 'numeric' })
+                            }
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-gray-400 truncate flex-1">
+                          {conv.last_message || <span className="italic opacity-50 capitalize">{conv.role}</span>}
+                        </p>
+                        {conv.unread_count > 0 && (
+                          <span className="ml-2 bg-brand text-dark text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                            {conv.unread_count}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 ))

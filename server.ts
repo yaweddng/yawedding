@@ -131,6 +131,25 @@ async function startServer() {
   ensureFile(BLOCKED_IPS_PATH, { blocked: [] });
   ensureFile(REDIRECTIONS_PATH, { redirections: [] });
 
+  // Ensure Master Admin exists in DB
+  try {
+    const securityData = JSON.parse(fs.readFileSync(ADMIN_SECURITY_PATH, "utf-8"));
+    const adminEmail = securityData.adminCredentials.username;
+    const adminPassword = securityData.adminCredentials.password;
+    const existingAdmin = db.prepare("SELECT * FROM users WHERE email = ?").get(adminEmail);
+    
+    if (!existingAdmin) {
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      db.prepare(`
+        INSERT INTO users (id, email, password, name, username, role, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run('admin', adminEmail, hashedPassword, 'Master Admin', 'admin', 'admin', 1);
+      console.log("Master Admin created in database.");
+    }
+  } catch (e) {
+    console.error("Failed to ensure Master Admin:", e);
+  }
+
   // VAPID Keys for Push Notifications
   let vapidKeys = {
     publicKey: process.env.VAPID_PUBLIC_KEY || "",
@@ -895,35 +914,49 @@ async function startServer() {
     const currentUserRole = req.query.role as string;
 
     try {
-      if (currentUserRole === 'admin') {
-        // Admin sees all users who have messaged or can be messaged
-        const users = db.prepare(`
-          SELECT id, name, username, email, role
-          FROM users
-          WHERE id != ?
-          ORDER BY (CASE WHEN role = 'admin' THEN 0 ELSE 1 END), name ASC
-        `).all(currentUserId);
-        res.json(users);
+      // Base query to get users and their last message with the current user
+      let query = `
+        SELECT 
+          u.id, u.name, u.username, u.email, u.role,
+          m.content as last_message,
+          m.created_at as last_message_at,
+          (SELECT COUNT(*) FROM messages WHERE sender_id = u.id AND receiver_id = ? AND is_read = 0) as unread_count
+        FROM users u
+        LEFT JOIN (
+          SELECT m1.*
+          FROM messages m1
+          INNER JOIN (
+            SELECT 
+              CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as contact_id,
+              MAX(created_at) as max_created_at
+            FROM messages
+            WHERE sender_id = ? OR receiver_id = ?
+            GROUP BY contact_id
+          ) m2 ON (CASE WHEN m1.sender_id = ? THEN m1.receiver_id ELSE m1.sender_id END) = m2.contact_id 
+            AND m1.created_at = m2.max_created_at
+        ) m ON u.id = (CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END)
+        WHERE u.id != ?
+      `;
+
+      if (currentUserRole === 'customer') {
+        query += " AND (u.role = 'admin' OR u.role = 'partner')";
       } else if (currentUserRole === 'partner') {
-        // Partners see admin and customers
-        const users = db.prepare(`
-          SELECT id, name, username, email, role
-          FROM users
-          WHERE (role = 'admin' OR role = 'customer') AND id != ?
-          ORDER BY (CASE WHEN role = 'admin' THEN 0 ELSE 1 END), name ASC
-        `).all(currentUserId);
-        res.json(users);
-      } else {
-        // Customers see admin and partners
-        const users = db.prepare(`
-          SELECT id, name, username, email, role
-          FROM users
-          WHERE (role = 'admin' OR role = 'partner') AND id != ?
-          ORDER BY (CASE WHEN role = 'admin' THEN 0 ELSE 1 END), name ASC
-        `).all(currentUserId);
-        res.json(users);
+        query += " AND (u.role = 'admin' OR u.role = 'customer')";
       }
+
+      query += " ORDER BY (CASE WHEN m.created_at IS NULL THEN 1 ELSE 0 END), m.created_at DESC, u.name ASC";
+
+      const users = db.prepare(query).all(
+        currentUserId, // for unread_count
+        currentUserId, currentUserId, currentUserId, // for inner join m2
+        currentUserId, // for inner join m1 contact_id
+        currentUserId, // for outer join m contact_id
+        currentUserId  // for u.id != ?
+      );
+      
+      res.json(users);
     } catch (e) {
+      console.error("Failed to fetch conversations:", e);
       res.status(500).json({ error: "Failed to fetch conversations" });
     }
   });
@@ -1139,6 +1172,16 @@ async function startServer() {
     });
 
     res.json({ success: true });
+  });
+
+  app.post("/api/messages/mark-read", (req, res) => {
+    const { userId, otherUserId } = req.body;
+    try {
+      db.prepare("UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ? AND is_read = 0").run(otherUserId, userId);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to mark messages as read" });
+    }
   });
 
   app.get("/api/messages/unread/:userId", (req, res) => {

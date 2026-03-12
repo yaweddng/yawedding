@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Smartphone, Sparkles, Share, PlusSquare, RefreshCw } from 'lucide-react';
+import { Download, X, Smartphone, Sparkles, Share, PlusSquare, RefreshCw, RotateCcw } from 'lucide-react';
+import { resetApp } from '../utils/pwa';
 
 export const PWAInstallPopup = () => {
   const [show, setShow] = useState(false);
@@ -91,6 +92,8 @@ export const PWAInstallPopup = () => {
       setShowInstructions(true);
     }
   };
+
+  const handleResetApp = () => resetApp();
 
   const handleUpdate = () => {
     if (registration && registration.waiting) {
@@ -187,6 +190,15 @@ export const PWAInstallPopup = () => {
                     className="px-6 py-3 rounded-xl border border-white/10 text-gray-400 font-medium hover:bg-white/5 transition-colors"
                   >
                     Not now
+                  </button>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/5 flex justify-center">
+                  <button 
+                    onClick={handleResetApp}
+                    className="text-[10px] text-gray-500 hover:text-brand transition-colors uppercase tracking-widest font-bold"
+                  >
+                    Installation Issues? Reset App
                   </button>
                 </div>
               </>

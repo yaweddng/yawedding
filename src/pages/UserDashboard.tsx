@@ -27,9 +27,11 @@ import {
   CreditCard,
   FileJson,
   Share2,
-  TrendingUp
+  TrendingUp,
+  RotateCcw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { resetApp } from '../utils/pwa';
 
 // Sub-components for tabs
 const PagesTab = ({ user, token }: { user: any; token: string }) => {
@@ -424,6 +426,26 @@ const SettingsTab = ({ user, token }: { user: any; token: string }) => {
                 <label className="text-xs font-bold text-gray-500 uppercase">Email Address</label>
                 <input className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand" defaultValue={user.email} />
               </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-8 rounded-[32px] border border-white/5 space-y-6">
+            <h3 className="text-lg font-bold text-red-400 flex items-center gap-2">
+              <RotateCcw size={20} /> Danger Zone
+            </h3>
+            <div className="p-6 bg-red-500/5 border border-red-500/10 rounded-2xl space-y-4">
+              <div>
+                <h4 className="font-bold text-white mb-1 text-sm">Reset Application</h4>
+                <p className="text-[10px] text-gray-400 leading-relaxed">
+                  If you're experiencing issues with the mobile app or installation, you can reset the application. This will clear all local data, logout, and refresh the app.
+                </p>
+              </div>
+              <button 
+                onClick={() => resetApp()}
+                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-3 rounded-xl font-bold transition-all border border-red-500/20 flex items-center justify-center gap-2 text-xs"
+              >
+                <RotateCcw size={14} /> Reset & Clear All Data
+              </button>
             </div>
           </div>
         </div>

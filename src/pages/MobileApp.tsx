@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Smartphone, Zap, Shield, Cloud, Download, Smartphone as PhoneIcon, Layout, Sparkles, Heart, Calendar, Image as ImageIcon, Camera, Check } from 'lucide-react';
+import { Smartphone, Zap, Shield, Cloud, Download, Smartphone as PhoneIcon, Layout, Sparkles, Heart, Calendar, Image as ImageIcon, Camera, Check, RotateCcw } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { resetApp } from '../utils/pwa';
 
 export const MobileApp = () => {
   const features = [
@@ -158,13 +159,20 @@ export const MobileApp = () => {
                     <p className="text-gray-400 text-[8px] md:text-sm leading-tight">Open directly from your home screen.</p>
                   </div>
                 </div>
-                <div className="pt-2 md:pt-4">
+                <div className="pt-2 md:pt-4 space-y-3">
                   <button 
                     onClick={() => window.dispatchEvent(new Event('show-pwa-install'))}
                     className="w-full bg-brand text-dark px-2 py-1.5 md:px-6 md:py-3 rounded-lg md:rounded-xl text-[10px] md:text-sm font-bold flex items-center justify-center gap-1 md:gap-2 hover:scale-[1.02] transition-transform"
                   >
                     <Download size={12} />
                     Install
+                  </button>
+                  <button 
+                    onClick={resetApp}
+                    className="w-full bg-white/5 border border-white/10 text-gray-400 px-2 py-1.5 md:px-6 md:py-3 rounded-lg md:rounded-xl text-[8px] md:text-xs font-medium flex items-center justify-center gap-1 md:gap-2 hover:bg-white/10 transition-colors"
+                  >
+                    <RotateCcw size={10} />
+                    Reset & Reinstall
                   </button>
                 </div>
               </div>
