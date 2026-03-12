@@ -25,7 +25,9 @@ export const Inbox = () => {
   const [callTimer, setCallTimer] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null); // Dedicated ref for remote audio
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const mainVideoRef = useRef<HTMLVideoElement | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const callAudioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
@@ -79,7 +81,7 @@ export const Inbox = () => {
               if (container) {
                 const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
                 if (isNearBottom || msg.sender_id === parsedUser.id) {
-                  setTimeout(scrollToBottom, 100);
+                  // Auto-scroll removed
                 }
               }
             }
@@ -183,7 +185,15 @@ export const Inbox = () => {
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = remoteStream;
     }
-  }, [remoteStream, activeCall?.status]);
+    if (mainVideoRef.current) {
+      mainVideoRef.current.srcObject = swapPreview ? callStream : remoteStream;
+      mainVideoRef.current.style.transform = swapPreview ? 'scaleX(-1)' : 'none';
+    }
+    if (previewVideoRef.current) {
+      previewVideoRef.current.srcObject = swapPreview ? remoteStream : callStream;
+      previewVideoRef.current.style.transform = swapPreview ? 'none' : 'scaleX(-1)';
+    }
+  }, [remoteStream, callStream, activeCall?.status, swapPreview]);
 
   const startCallTimer = () => {
     setCallDuration(0);
@@ -303,6 +313,7 @@ export const Inbox = () => {
       };
 
       peerRef.current.ontrack = (event) => {
+        console.log('Remote track received in handleReceiveOffer:', event.track.kind);
         setRemoteStream(event.streams[0]);
       };
     }
@@ -377,15 +388,12 @@ export const Inbox = () => {
           if (container) {
             const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
             if (isNearBottom) {
-              setTimeout(scrollToBottom, 100);
+              // Auto-scroll removed
             }
           }
         }
         
         setMessages(data);
-        if (messages.length === 0) {
-          setTimeout(scrollToBottom, 100); // Initial load scroll
-        }
 
         // Mark as read
         fetch('/api/messages/mark-read', {
@@ -428,9 +436,7 @@ export const Inbox = () => {
     }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // scrollToBottom function removed
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -447,7 +453,6 @@ export const Inbox = () => {
 
     setMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
-    scrollToBottom();
 
     try {
       const res = await fetch('/api/messages', {
@@ -500,6 +505,7 @@ export const Inbox = () => {
       };
 
       peerRef.current.ontrack = (event) => {
+        console.log('Remote track received in handleCall:', event.track.kind);
         setRemoteStream(event.streams[0]);
       };
 
@@ -592,7 +598,6 @@ export const Inbox = () => {
       };
 
       setMessages(prev => [...prev, tempMessage]);
-      scrollToBottom();
 
       const res = await fetch('/api/messages', {
         method: 'POST',
@@ -711,12 +716,7 @@ export const Inbox = () => {
                 autoPlay 
                 playsInline 
                 muted={swapPreview}
-                ref={video => {
-                  if (video) {
-                    video.srcObject = swapPreview ? callStream : remoteStream;
-                    video.style.transform = swapPreview ? 'scaleX(-1)' : 'none';
-                  }
-                }}
+                ref={mainVideoRef}
                 className="absolute inset-0 w-full h-full object-cover"
               />
             )}
@@ -731,12 +731,7 @@ export const Inbox = () => {
                   autoPlay 
                   playsInline 
                   muted={!swapPreview}
-                  ref={video => {
-                    if (video) {
-                      video.srcObject = swapPreview ? remoteStream : callStream;
-                      video.style.transform = swapPreview ? 'none' : 'scaleX(-1)';
-                    }
-                  }}
+                  ref={previewVideoRef}
                   className="w-full h-full object-cover"
                 />
               </div>
